@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
 import { Pin, PinOff, Trash2, MoreHorizontal } from 'lucide-react';
+import { getLanguageColor } from '@/lib/languages';
+import { getTagColor } from '@/lib/tagColors';
 
 function relativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
@@ -15,19 +17,6 @@ function relativeTime(timestamp: number): string {
   if (days < 7) return `${days}d ago`;
   return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
-
-const LANGUAGE_COLORS: Record<string, string> = {
-  javascript: '#f7df1e', typescript: '#3178c6', python: '#3572a5',
-  java: '#b07219', c: '#555555', cpp: '#f34b7d', go: '#00add8',
-  rust: '#dea584', sql: '#e38c00', bash: '#89e051', json: '#e0e0e0',
-  yaml: '#cb171e', toml: '#9c4221', markdown: '#519aba',
-  plaintext: '#8b8b9e', url: '#3b82f6',
-};
-
-const TAG_COLORS: Record<string, string> = {
-  red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e',
-  blue: '#3b82f6', purple: '#a855f7', pink: '#ec4899',
-};
 
 const SORT_OPTIONS = [
   { label: 'Newest', value: 'newest' as const },
@@ -108,7 +97,7 @@ export default function NoteList() {
                       <div className="text-xs font-medium text-foreground truncate">{note.title || 'Untitled'}</div>
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: LANGUAGE_COLORS[note.language] || LANGUAGE_COLORS.plaintext }} />
+                      <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getLanguageColor(note.language) }} />
                       <span className="text-[10px] text-muted uppercase">{note.language}</span>
                       <span className="text-[10px] text-muted">&middot;</span>
                       <span className="text-[10px] text-muted">{relativeTime(note.updatedAt)}</span>
@@ -118,11 +107,12 @@ export default function NoteList() {
                         {note.tags.map((tagId) => {
                           const tag = tagMap.get(tagId);
                           if (!tag) return null;
+                          const tagHex = getTagColor(tag.color);
                           return (
                             <span
                               key={tagId}
                               className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
-                              style={{ backgroundColor: (TAG_COLORS[tag.color] || '#3b82f6') + '30', color: TAG_COLORS[tag.color] || '#3b82f6' }}
+                              style={{ backgroundColor: tagHex + '30', color: tagHex }}
                             >
                               {tag.name}
                             </span>

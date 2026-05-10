@@ -7,6 +7,7 @@ import { useNoteStore } from '@/hooks/useNotes';
 import Toolbar from './Toolbar';
 import LanguageBadge from './LanguageBadge';
 import MarkdownPreview from './MarkdownPreview';
+import { mapLanguageToMonaco } from '@/lib/languages';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react').then((mod) => mod.default), {
   ssr: false,
@@ -20,18 +21,8 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react').then((mod) => 
 const JsonTreeView = dynamic(() => import('./JsonTreeView'), { ssr: false });
 const DiffView = dynamic(() => import('./DiffView'), { ssr: false });
 
-function mapLanguageToMonaco(lang: string): string {
-  const langMap: Record<string, string> = {
-    javascript: 'javascript', typescript: 'typescript', python: 'python',
-    java: 'java', c: 'c', cpp: 'cpp', go: 'go', rust: 'rust',
-    sql: 'sql', bash: 'shell', json: 'json', yaml: 'yaml',
-    markdown: 'markdown', toml: 'plaintext', url: 'plaintext', plaintext: 'plaintext',
-  };
-  return langMap[lang] || 'plaintext';
-}
-
 export default function EditorPane() {
-  const { notes, selectedNoteId, updateNote } = useNoteStore();
+  const { notes, selectedNoteId, updateNote, theme } = useNoteStore();
   const note = notes.find((n) => n.id === selectedNoteId);
   const [wordWrap, setWordWrap] = useState(true);
   const [minimap, setMinimap] = useState(false);
@@ -94,7 +85,6 @@ export default function EditorPane() {
         <DiffView
           original={diffNote.content}
           modified={note.content}
-          originalLang={diffNote.language}
           modifiedLang={note.language}
           onClose={() => { setDiffMode(false); setDiffNoteId(null); }}
         />
@@ -161,7 +151,7 @@ export default function EditorPane() {
                 value={note.content}
                 onChange={handleChange}
                 onMount={handleMount}
-                theme="vs-dark"
+                theme={theme === 'light' ? 'vs' : 'vs-dark'}
                 options={{
                   fontSize, fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                   fontLigatures: true, lineNumbers: 'on',

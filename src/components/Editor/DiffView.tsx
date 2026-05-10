@@ -1,6 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useNoteStore } from '@/hooks/useNotes';
+import { mapLanguageToMonaco } from '@/lib/languages';
 
 const MonacoDiffEditor = dynamic(
   () => import('@monaco-editor/react').then((mod) => mod.DiffEditor),
@@ -10,22 +12,13 @@ const MonacoDiffEditor = dynamic(
 interface DiffViewProps {
   original: string;
   modified: string;
-  originalLang: string;
   modifiedLang: string;
   onClose: () => void;
 }
 
-function mapLanguageToMonaco(lang: string): string {
-  const langMap: Record<string, string> = {
-    javascript: 'javascript', typescript: 'typescript', python: 'python',
-    java: 'java', c: 'c', cpp: 'cpp', go: 'go', rust: 'rust',
-    sql: 'sql', bash: 'shell', json: 'json', yaml: 'yaml',
-    markdown: 'markdown', toml: 'plaintext', url: 'plaintext', plaintext: 'plaintext',
-  };
-  return langMap[lang] || 'plaintext';
-}
-
 export default function DiffView({ original, modified, modifiedLang, onClose }: DiffViewProps) {
+  const { theme } = useNoteStore();
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="h-8 flex items-center justify-between px-3 bg-surface-secondary border-b border-border">
@@ -44,7 +37,7 @@ export default function DiffView({ original, modified, modifiedLang, onClose }: 
           original={original}
           modified={modified}
           language={mapLanguageToMonaco(modifiedLang)}
-          theme="vs-dark"
+          theme={theme === 'light' ? 'vs' : 'vs-dark'}
           options={{
             fontSize: 14,
             fontFamily: "'JetBrains Mono', 'Fira Code', monospace",

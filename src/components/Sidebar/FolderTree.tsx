@@ -50,16 +50,15 @@ export default function FolderTree() {
       </div>
 
       <div className="space-y-0.5">
-        <button
-          onClick={() => null}
+        <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={() => handleDrop(null)}
-          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors"
+          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground"
         >
           <FileText size={14} />
           <span className="flex-1 text-left">All Notes</span>
           <span className="text-[10px] text-muted">{allCount}</span>
-        </button>
+        </div>
 
         {folders.map((f) => {
           const noteCount = notes.filter((n) => n.folderId === f.id).length;

@@ -3,21 +3,7 @@
 import { useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
 import { Plus, X, Check } from 'lucide-react';
-
-const COLOR_OPTIONS = [
-  { label: 'Red', value: 'red', hex: '#ef4444' },
-  { label: 'Orange', value: 'orange', hex: '#f97316' },
-  { label: 'Yellow', value: 'yellow', hex: '#eab308' },
-  { label: 'Green', value: 'green', hex: '#22c55e' },
-  { label: 'Blue', value: 'blue', hex: '#3b82f6' },
-  { label: 'Purple', value: 'purple', hex: '#a855f7' },
-  { label: 'Pink', value: 'pink', hex: '#ec4899' },
-];
-
-const TAG_COLORS: Record<string, string> = {
-  red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e',
-  blue: '#3b82f6', purple: '#a855f7', pink: '#ec4899',
-};
+import { TAG_COLOR_OPTIONS, getTagColor } from '@/lib/tagColors';
 
 export default function TagManager() {
   const { tags, createTag, deleteTag, notes, selectedNoteId, addTagToNote, removeTagFromNote } = useNoteStore();
@@ -52,7 +38,7 @@ export default function TagManager() {
           <div key={tag.id} className="flex items-center gap-1.5 group">
             <span
               className="inline-block w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: TAG_COLORS[tag.color] || '#3b82f6' }}
+              style={{ backgroundColor: getTagColor(tag.color) }}
             />
             <span className="text-[11px] text-muted-foreground flex-1 truncate">{tag.name}</span>
             <button
@@ -75,7 +61,7 @@ export default function TagManager() {
               className="w-full bg-surface-tertiary text-[11px] text-foreground outline-none px-1.5 py-0.5 rounded placeholder-muted"
             />
             <div className="flex gap-1 flex-wrap">
-              {COLOR_OPTIONS.map((c) => (
+              {TAG_COLOR_OPTIONS.map((c) => (
                 <button
                   key={c.value}
                   onClick={() => setTagColor(c.value)}
@@ -100,6 +86,7 @@ export default function TagManager() {
           <div className="flex items-center gap-1 flex-wrap">
             {tags.map((tag) => {
               const isActive = selectedNote.tags.includes(tag.id);
+              const tagHex = getTagColor(tag.color);
               return (
                 <button
                   key={tag.id}
@@ -109,7 +96,7 @@ export default function TagManager() {
                       ? 'ring-1 ring-foreground/20'
                       : 'opacity-50 hover:opacity-80'
                   }`}
-                  style={{ backgroundColor: (TAG_COLORS[tag.color] || '#3b82f6') + '30', color: TAG_COLORS[tag.color] || '#3b82f6' }}
+                  style={{ backgroundColor: tagHex + '30', color: tagHex }}
                 >
                   {tag.name}
                   {isActive && <Check size={8} className="inline ml-0.5" />}

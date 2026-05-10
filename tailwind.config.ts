@@ -11,25 +11,25 @@ const config: Config = {
     extend: {
       colors: {
         accent: {
-          DEFAULT: '#3b82f6',
-          hover: '#2563eb',
-          muted: 'rgba(59, 130, 246, 0.15)',
+          DEFAULT: 'var(--accent)',
+          hover: 'var(--accent-hover)',
+          muted: 'var(--accent-muted)',
         },
         surface: {
-          DEFAULT: '#1e1e2e',
-          secondary: '#252536',
-          tertiary: '#2d2d3f',
-          hover: '#313145',
+          DEFAULT: 'var(--surface)',
+          secondary: 'var(--surface-secondary)',
+          tertiary: 'var(--surface-tertiary)',
+          hover: 'var(--surface-hover)',
         },
         muted: {
-          DEFAULT: '#8b8b9e',
-          foreground: '#a0a0b0',
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
         },
         border: {
-          DEFAULT: '#33334a',
+          DEFAULT: 'var(--border)',
         },
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
       },
       fontFamily: {
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],

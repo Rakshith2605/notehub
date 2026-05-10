@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar/Sidebar';
 import EditorPane from '@/components/Editor/EditorPane';
 import StatusBar from '@/components/StatusBar';
 import CommandPalette from '@/components/CommandPalette';
-import { Plus, PanelLeftClose, PanelLeft, Search, Download } from 'lucide-react';
+import { Plus, PanelLeftClose, PanelLeft, Search } from 'lucide-react';
 import { importFile } from '@/lib/export';
 
 export default function Home() {
@@ -82,13 +82,6 @@ export default function Home() {
             ⌘K
           </button>
           <button
-            onClick={() => import('@/lib/export').then(({ exportAllNotes }) => exportAllNotes(useNoteStore.getState().notes))}
-            className="p-1.5 rounded-md text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-            title="Export all notes"
-          >
-            <Download size={14} />
-          </button>
-          <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="p-1.5 rounded-md text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
             title="Toggle theme"
@@ -97,7 +90,7 @@ export default function Home() {
           </button>
           <button
             onClick={() => createNote()}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors ml-1"
           >
             <Plus size={14} />
             New
