@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
-import { WrapText, Map, Minus, Plus, Braces, Copy, Check, FileJson, Columns2, Eye } from 'lucide-react';
+import { WrapText, Map, Minus, Plus, Braces, Copy, Check, FileJson, Columns2, Eye, Download } from 'lucide-react';
 import type { Note } from '@/types';
 import { prettifyJson, minifyJson, validateJson, yamlToJson, jsonToYaml, validateYaml } from '@/lib/formatters';
+import { exportNote, exportNoteAsPdf } from '@/lib/export';
 
 const LANGUAGES = [
   { label: 'Plain Text', value: 'plaintext' },
@@ -38,10 +39,9 @@ interface ToolbarProps {
   setPreviewMode: (v: boolean) => void;
 }
 
-export default function Toolbar({
-  note, wordWrap, setWordWrap, minimap, setMinimap,
-  fontSize, setFontSize, splitView, setSplitView, previewMode, setPreviewMode,
-}: ToolbarProps) {
+export default function Toolbar(props: ToolbarProps) {
+  const { note, wordWrap, setWordWrap, minimap, setMinimap, fontSize } = props;
+  const { setFontSize, splitView, setSplitView, previewMode, setPreviewMode } = props;
   const { updateNote } = useNoteStore();
   const [copied, setCopied] = useState('');
 
@@ -171,6 +171,22 @@ export default function Toolbar({
       <div className="flex-1" />
 
       <div className="flex items-center gap-1">
+        <select
+          value=""
+          onChange={(e) => {
+            if (e.target.value === 'same-format') exportNote(note);
+            if (e.target.value === 'pdf') exportNoteAsPdf(note);
+            e.target.value = '';
+          }}
+          className="h-6 max-w-[132px] rounded border border-border bg-surface-tertiary px-2 text-[11px] text-foreground outline-none hover:border-accent"
+          aria-label="Download note"
+          title="Download note"
+        >
+          <option value="">Download</option>
+          <option value="same-format">Same format</option>
+          <option value="pdf">PDF</option>
+        </select>
+        <Download size={13} className="text-muted" aria-hidden="true" />
         <button
           onClick={() => setFontSize(Math.max(10, fontSize - 2))}
           className="p-0.5 rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
