@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Copy, ExternalLink } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 
 async function fetchWithAuth(path: string) {
@@ -14,39 +14,25 @@ async function fetchWithAuth(path: string) {
   return res.json();
 }
 
-function buildConfig(apiUrl: string, pat: string | null, serverPath: string): string {
-  const env: Record<string, string> = {
-    NOTEHUB_API_URL: apiUrl,
-  };
-  if (pat) {
-    env.NOTEHUB_PAT = pat;
-  } else {
-    env.NOTEHUB_PAT = 'nhpat_YOUR_TOKEN_HERE';
-  }
-
-  const config = {
-    mcpServers: {
-      notehub: {
-        command: 'node',
-        args: [serverPath],
-        env,
-      },
-    },
-  };
-
-  return JSON.stringify(config, null, 2);
-}
-
 export default function MCPConfig() {
   const [apiUrl, setApiUrl] = useState('');
   const [latestPat, setLatestPat] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [serverPath, setServerPath] = useState('/path/to/notehub/mcp-server/index.mjs');
+  const [serverPath, setServerPath] = useState('');
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setApiUrl(window.location.origin);
-    }
+    if (typeof window === 'undefined') return;
+
+    const origin = window.location.origin;
+    setApiUrl(origin);
+
+    fetch('/api/mcp/server-path')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.serverPath) setServerPath(data.serverPath);
+      })
+      .catch(() => {});
+
     fetchWithAuth('/api/auth/pat/list')
       .then((data) => {
         if (data.pats?.length > 0) {
@@ -56,7 +42,18 @@ export default function MCPConfig() {
       .catch(() => {});
   }, []);
 
-  const config = buildConfig(apiUrl || 'https://your-notehub-app.vercel.app', latestPat, serverPath);
+  const config = JSON.stringify({
+    mcpServers: {
+      notehub: {
+        command: 'node',
+        args: [serverPath || 'mcp-server/index.mjs'],
+        env: {
+          NOTEHUB_API_URL: apiUrl || 'https://your-app.vercel.app',
+          NOTEHUB_PAT: latestPat ? 'nhpat_YOUR_TOKEN' : 'nhpat_YOUR_TOKEN_HERE',
+        },
+      },
+    },
+  }, null, 2);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(config);
@@ -67,25 +64,18 @@ export default function MCPConfig() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">
-        Add this to your{' '}
-        <a
-          href="https://docs.anthropic.com/en/docs/claude-code/mcp"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-accent hover:underline inline-flex items-center gap-0.5"
-        >
-          Claude Desktop MCP config
-          <ExternalLink size={10} />
-        </a>
-        {' '}or any MCP client. Replace the server path with where you cloned NoteHub.
+        Paste this into your MCP client config. No extra install needed — the server is a single file with zero dependencies.
       </p>
 
       <div className="space-y-1.5">
-        <label className="text-[10px] font-medium text-muted-foreground">Server path</label>
+        <label className="text-[10px] font-medium text-muted-foreground">
+          Server path <span className="text-muted">(edit if needed)</span>
+        </label>
         <input
           type="text"
           value={serverPath}
           onChange={(e) => setServerPath(e.target.value)}
+          placeholder="path/to/notehub/mcp-server/index.mjs"
           className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground font-mono outline-none focus:border-accent"
         />
       </div>
@@ -108,6 +98,18 @@ export default function MCPConfig() {
           Generate a PAT above first, then the config will include your token.
         </div>
       )}
+
+      <p className="text-[10px] text-muted leading-relaxed">
+        This server uses the MCP stdio protocol (JSON-RPC over stdin/stdout).
+        It has <strong>zero npm dependencies</strong> — just Node.js built-ins.
+        Works with{' '}
+        <a href="https://docs.anthropic.com/en/docs/claude-code/mcp" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+          Claude Desktop
+        </a>,{' '}
+        <a href="https://opencode.ai" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+          OpenCode
+        </a>, and any MCP-compatible client.
+      </p>
     </div>
   );
 }
