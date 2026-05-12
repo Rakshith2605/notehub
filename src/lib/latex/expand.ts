@@ -1,11 +1,10 @@
 import { Macro } from './macros';
 import { parseBraceArgs } from './parseArgs';
 
-const PREAMBLE_PATTERNS: RegExp[] = [
+// Simple patterns without nested braces
+const SIMPLE_PATTERNS: RegExp[] = [
   /\\documentclass(\[[^\]]*\])?\{[^}]*\}/g,
   /\\usepackage(\[[^\]]*\])?\{[^}]*\}/g,
-  /\\newcommand\\\w+(\[\d+\])?\{[^}]*\}/g,
-  /\\renewcommand\\\w+(\[\d+\])?\{[^}]*\}/g,
   /\\input\{[^}]*\}/g,
   /\\begin\{document\}/g,
   /\\end\{document\}/g,
@@ -18,9 +17,59 @@ const PREAMBLE_PATTERNS: RegExp[] = [
   /^%.*$/gm,
 ];
 
+function skipBalancedBraces(src: string, start: number): number {
+  if (src[start] !== '{') return start;
+  let depth = 1;
+  let i = start + 1;
+  while (i < src.length && depth > 0) {
+    if (src[i] === '\\' && i + 1 < src.length) {
+      i += 2;
+      continue;
+    }
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') depth--;
+    if (depth > 0) i++;
+  }
+  return i + 1;
+}
+
+function stripNewcommand(src: string): string {
+  let out = '';
+  let i = 0;
+  while (i < src.length) {
+    const ncMatch = /^\\(newcommand|renewcommand|def)\{/.exec(src.slice(i));
+    if (!ncMatch) {
+      out += src[i++];
+      continue;
+    }
+    // Found \newcommand{ or \renewcommand{ or \def{
+    i += ncMatch[0].length;
+    // Skip the command name braces
+    const nameEnd = src.indexOf('}', i);
+    if (nameEnd === -1) break;
+    i = nameEnd + 1;
+    // Skip optional arg count [N] if present
+    if (src[i] === '[') {
+      const optEnd = src.indexOf(']', i);
+      if (optEnd !== -1) i = optEnd + 1;
+    }
+    // Skip the body (balanced braces)
+    while (i < src.length && /\s/.test(src[i])) i++;
+    if (src[i] === '{') {
+      i = skipBalancedBraces(src, i);
+    }
+  }
+  return out;
+}
+
 export function stripPreamble(src: string): string {
   let out = src;
-  for (const pat of PREAMBLE_PATTERNS) out = out.replace(pat, '');
+  // Apply simple patterns first
+  for (const pat of SIMPLE_PATTERNS) {
+    out = out.replace(pat, '');
+  }
+  // Then handle newcommand/renewcommand with nested braces
+  out = stripNewcommand(out);
   return out;
 }
 
