@@ -69,7 +69,23 @@ export default function MCPConfig() {
 
       <div className="space-y-1.5">
         <label className="text-[10px] font-medium text-muted-foreground">
-          Server path <span className="text-muted">(edit if needed)</span>
+          API URL <span className="text-muted">(your deployment)</span>
+        </label>
+        <input
+          type="text"
+          value={apiUrl}
+          onChange={(e) => setApiUrl(e.target.value)}
+          placeholder="https://notehub-nine.vercel.app"
+          className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground font-mono outline-none focus:border-accent"
+        />
+        {apiUrl.includes('localhost') && (
+          <p className="text-[10px] text-amber-300">Running locally? Change this to your Vercel deployment URL.</p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-medium text-muted-foreground">
+          Server path <span className="text-muted">(auto-detected)</span>
         </label>
         <input
           type="text"
