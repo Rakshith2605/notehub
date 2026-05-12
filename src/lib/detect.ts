@@ -7,6 +7,7 @@ export function detectLanguage(content: string): string {
   if (isYaml(trimmed)) return 'yaml';
   if (isToml(trimmed)) return 'toml';
   if (isMarkdown(trimmed)) return 'markdown';
+  if (isLaTeX(trimmed)) return 'latex';
 
   const codeLang = detectCodeLanguage(trimmed);
   if (codeLang) return codeLang;
@@ -71,6 +72,47 @@ function isMarkdown(text: string): boolean {
   for (const pattern of mdPatterns) {
     if (pattern.test(text)) score++;
   }
+  return score >= 2;
+}
+
+function isLaTeX(text: string): boolean {
+  const strongSignals = [
+    /\\documentclass\b/,
+    /\\begin\{document\}/,
+    /\\end\{document\}/,
+    /\\usepackage\b/,
+  ];
+  for (const pattern of strongSignals) {
+    if (pattern.test(text)) return true;
+  }
+
+  let score = 0;
+  const patterns = [
+    /\\begin\{[^}]+\}/g,
+    /\\end\{[^}]+\}/g,
+    /\\section\b/g,
+    /\\subsection\b/g,
+    /\\frac\b/g,
+    /\\sum\b/g,
+    /\\int\b/g,
+    /\\alpha\b/g,
+    /\\beta\b/g,
+    /\\lambda\b/g,
+    /\\textbf\b/g,
+    /\\textit\b/g,
+    /\\cite\b/g,
+    /\\ref\b/g,
+    /\\label\b/g,
+    /\\maketitle\b/g,
+    /\\tableofcontents\b/g,
+    /\$\$[\s\S]+\$\$/g,
+    /\$[^$]+\$/g,
+  ];
+  for (const pattern of patterns) {
+    const matches = text.match(pattern);
+    if (matches) score += matches.length;
+  }
+
   return score >= 2;
 }
 

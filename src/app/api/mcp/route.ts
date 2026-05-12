@@ -133,6 +133,7 @@ const LANGUAGES = [
   { id: 'yaml', label: 'YAML' },
   { id: 'toml', label: 'TOML' },
   { id: 'markdown', label: 'Markdown' },
+  { id: 'latex', label: 'LaTeX' },
 ];
 
 export async function POST(req: NextRequest) {

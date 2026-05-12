@@ -19,6 +19,7 @@ export const LANGUAGES: LanguageOption[] = [
   { label: 'YAML', value: 'yaml' },
   { label: 'TOML', value: 'toml' },
   { label: 'Markdown', value: 'markdown' },
+  { label: 'LaTeX', value: 'latex' },
 ];
 
 export const LANGUAGE_COLORS: Record<string, string> = {
@@ -36,6 +37,7 @@ export const LANGUAGE_COLORS: Record<string, string> = {
   yaml: '#cb171e',
   toml: '#9c4221',
   markdown: '#519aba',
+  latex: '#008080',
   plaintext: '#9e9e9e',
   url: '#3b82f6',
 };
@@ -58,6 +60,7 @@ const MONACO_LANG_MAP: Record<string, string> = {
   json: 'json',
   yaml: 'yaml',
   markdown: 'markdown',
+  latex: 'latex',
   toml: 'plaintext',
   url: 'plaintext',
   plaintext: 'plaintext',
