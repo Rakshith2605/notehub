@@ -319,3 +319,109 @@ textarea {
 .latex-preview .katex .mtext {
   color: var(--foreground);
 }
+
+/* LaTeX Resume/Document Styles */
+.latex-preview {
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.latex-preview .latex-section {
+  font-size: 14pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 18px 0 6px;
+  color: var(--foreground);
+}
+
+.latex-preview .latex-hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0 0 12px;
+  opacity: 0.6;
+}
+
+.latex-preview .latex-subsection {
+  font-size: 12pt;
+  font-weight: 600;
+  margin: 14px 0 6px;
+  color: var(--foreground);
+}
+
+/* Resume Subheading */
+.latex-preview .latex-resume-subheading {
+  margin: 8px 0;
+}
+
+.latex-preview .latex-resume-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.latex-preview .latex-resume-company {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.latex-preview .latex-resume-role {
+  font-style: italic;
+  color: var(--muted-foreground);
+}
+
+.latex-preview .latex-resume-date,
+.latex-preview .latex-resume-loc {
+  font-size: 10pt;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Resume Item List */
+.latex-preview .latex-resume-list {
+  margin: 4px 0;
+}
+
+.latex-preview .latex-resume-item-list {
+  margin: 6px 0 10px 18px;
+  padding: 0;
+  list-style: disc;
+}
+
+.latex-preview .latex-resume-item {
+  font-size: 10.5pt;
+  margin-bottom: 3px;
+  line-height: 1.5;
+  color: var(--foreground);
+}
+
+/* Links */
+.latex-preview .latex-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.latex-preview .latex-link:hover {
+  text-decoration: underline;
+  color: var(--accent-hover);
+}
+
+/* Error handling */
+.latex-preview .latex-error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #f87171;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+}
+
+/* KaTeX overrides for consistency */
+.latex-preview .katex-display {
+  margin: 12px 0;
+}
+
+.latex-preview br {
+  display: block;
+  margin: 4px 0;
+}
