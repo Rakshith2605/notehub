@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
 
-export function useKeyboardShortcuts() {
+export function useKeyboardShortcuts(enabled = true) {
   const { createNote, toggleSidebar, setSearchQuery } = useNoteStore();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useEffect(() => {
+    if (!enabled) return;
+
     function handleKeyDown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
 
@@ -52,7 +54,7 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [createNote, toggleSidebar, setSearchQuery, commandPaletteOpen]);
+  }, [enabled, createNote, toggleSidebar, setSearchQuery, commandPaletteOpen]);
 
   return { commandPaletteOpen, setCommandPaletteOpen };
 }

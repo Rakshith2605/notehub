@@ -4,17 +4,20 @@ import type { Note, Folder, Tag, Version } from '@/types';
 import * as db from '@/lib/db';
 
 interface NoteStore {
+  activeUserId: string | null;
   notes: Note[];
   folders: Folder[];
   tags: Tag[];
   selectedNoteId: string | null;
   isLoading: boolean;
+  syncError: string | null;
   searchQuery: string;
   sortBy: 'newest' | 'oldest' | 'modified' | 'alpha';
   sidebarOpen: boolean;
   theme: 'dark' | 'light';
 
-  loadFromDB: () => Promise<void>;
+  loadFromDB: (userId: string) => Promise<void>;
+  clearWorkspace: () => void;
   createNote: (content?: string) => Note;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
@@ -47,24 +50,51 @@ function addVersion(versions: Version[], content: string): Version[] {
   return deduped.slice(-10);
 }
 
-export const useNoteStore = create<NoteStore>((set) => ({
+function workspaceSnapshot(userId: string | null, notes: Note[], folders: Folder[], tags: Tag[]): string {
+  return JSON.stringify({ userId, notes, folders, tags });
+}
+
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let lastPersistedSnapshot = '';
+
+export const useNoteStore = create<NoteStore>((set, get) => ({
+  activeUserId: null,
   notes: [],
   folders: [],
   tags: [],
   selectedNoteId: null,
   isLoading: true,
+  syncError: null,
   searchQuery: '',
   sortBy: 'newest',
   sidebarOpen: true,
   theme: 'dark',
 
-  loadFromDB: async () => {
-    const [notes, folders, tags] = await Promise.all([
-      db.getAllNotes(),
-      db.getAllFolders(),
-      db.getAllTags(),
-    ]);
-    set({ notes, folders, tags, isLoading: false });
+  loadFromDB: async (userId) => {
+    set({ activeUserId: userId, isLoading: true, syncError: null });
+
+    try {
+      const [notes, folders, tags] = await Promise.all([
+        db.getAllNotes(userId),
+        db.getAllFolders(userId),
+        db.getAllTags(userId),
+      ]);
+      const selectedNoteId = notes.some((note) => note.id === get().selectedNoteId)
+        ? get().selectedNoteId
+        : notes[0]?.id || null;
+
+      lastPersistedSnapshot = workspaceSnapshot(userId, notes, folders, tags);
+      set({ notes, folders, tags, selectedNoteId, isLoading: false, syncError: null });
+    } catch (error) {
+      const syncError = error instanceof Error ? error.message : 'Unable to load Supabase workspace.';
+      set({ notes: [], folders: [], tags: [], selectedNoteId: null, isLoading: false, syncError });
+    }
+  },
+
+  clearWorkspace: () => {
+    if (persistTimer) clearTimeout(persistTimer);
+    lastPersistedSnapshot = '';
+    set({ activeUserId: null, notes: [], folders: [], tags: [], selectedNoteId: null, isLoading: false, syncError: null });
   },
 
   createNote: (content?: string) => {
@@ -101,6 +131,7 @@ export const useNoteStore = create<NoteStore>((set) => ({
   },
 
   deleteNote: (id) => {
+    const userId = get().activeUserId;
     set((s) => {
       const filtered = s.notes.filter((n) => n.id !== id);
       const nextId = s.selectedNoteId === id
@@ -108,6 +139,7 @@ export const useNoteStore = create<NoteStore>((set) => ({
         : s.selectedNoteId;
       return { notes: filtered, selectedNoteId: nextId };
     });
+    if (userId) void db.deleteNote(userId, id).catch(console.error);
   },
 
   selectNote: (id) => set({ selectedNoteId: id }),
@@ -119,10 +151,12 @@ export const useNoteStore = create<NoteStore>((set) => ({
   },
 
   deleteFolder: (id) => {
+    const userId = get().activeUserId;
     set((s) => ({
       folders: s.folders.filter((f) => f.id !== id),
       notes: s.notes.map((n) => (n.folderId === id ? { ...n, folderId: null } : n)),
     }));
+    if (userId) void db.deleteFolder(userId, id).catch(console.error);
   },
 
   renameFolder: (id, name) => {
@@ -138,6 +172,7 @@ export const useNoteStore = create<NoteStore>((set) => ({
   },
 
   deleteTag: (id) => {
+    const userId = get().activeUserId;
     set((s) => ({
       tags: s.tags.filter((t) => t.id !== id),
       notes: s.notes.map((n) => ({
@@ -145,6 +180,7 @@ export const useNoteStore = create<NoteStore>((set) => ({
         tags: n.tags.filter((t) => t !== id),
       })),
     }));
+    if (userId) void db.deleteTag(userId, id).catch(console.error);
   },
 
   addTagToNote: (noteId, tagId) => {
@@ -196,17 +232,28 @@ export const useNoteStore = create<NoteStore>((set) => ({
   },
 }));
 
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
-
 useNoteStore.subscribe((state) => {
-  if (state.isLoading) return;
+  if (state.isLoading || !state.activeUserId) return;
+
+  const nextSnapshot = workspaceSnapshot(state.activeUserId, state.notes, state.folders, state.tags);
+  if (nextSnapshot === lastPersistedSnapshot) return;
 
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
+    const currentState = useNoteStore.getState();
+    if (currentState.isLoading || !currentState.activeUserId) return;
+
+    const currentSnapshot = workspaceSnapshot(currentState.activeUserId, currentState.notes, currentState.folders, currentState.tags);
+    if (currentSnapshot === lastPersistedSnapshot) return;
+
     Promise.all([
-      ...state.notes.map((n) => db.saveNote(n)),
-      ...state.folders.map((f) => db.saveFolder(f)),
-      ...state.tags.map((t) => db.saveTag(t)),
-    ]).catch(console.error);
+      ...currentState.notes.map((note) => db.saveNote(currentState.activeUserId!, note)),
+      ...currentState.folders.map((folder) => db.saveFolder(currentState.activeUserId!, folder)),
+      ...currentState.tags.map((tag) => db.saveTag(currentState.activeUserId!, tag)),
+    ])
+      .then(() => {
+        lastPersistedSnapshot = currentSnapshot;
+      })
+      .catch(console.error);
   }, 500);
 });

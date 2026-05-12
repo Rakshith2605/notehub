@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "@supabase/supabase-js": "^2.105.4",
     "file-saver": "^2.0.5",
-    "idb": "^8.0.3",
     "jszip": "^3.10.1",
     "lucide-react": "^1.14.0",
     "nanoid": "^5.1.11",

@@ -2,21 +2,30 @@
 
 import { useEffect, useCallback } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
+import { useAuth } from '@/hooks/useAuth';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import Sidebar from '@/components/Sidebar/Sidebar';
 import EditorPane from '@/components/Editor/EditorPane';
 import StatusBar from '@/components/StatusBar';
 import CommandPalette from '@/components/CommandPalette';
-import { Plus, PanelLeftClose, PanelLeft, Search } from 'lucide-react';
+import LoginScreen from '@/components/Auth/LoginScreen';
+import { LogOut, Moon, Plus, PanelLeftClose, PanelLeft, Search, Sun } from 'lucide-react';
 import { importFile } from '@/lib/export';
 
 export default function Home() {
-  const { loadFromDB, isLoading, createNote, sidebarOpen, toggleSidebar, theme, setTheme, setSearchQuery, searchQuery } = useNoteStore();
-  const { commandPaletteOpen, setCommandPaletteOpen } = useKeyboardShortcuts();
+  const auth = useAuth();
+  const userId = auth.user?.id || null;
+  const { loadFromDB, clearWorkspace, isLoading, syncError, createNote, sidebarOpen, toggleSidebar, theme, setTheme, setSearchQuery, searchQuery } = useNoteStore();
+  const { commandPaletteOpen, setCommandPaletteOpen } = useKeyboardShortcuts(Boolean(userId));
 
   useEffect(() => {
-    loadFromDB();
-  }, [loadFromDB]);
+    if (auth.isLoading) return;
+    if (userId) {
+      void loadFromDB(userId);
+      return;
+    }
+    clearWorkspace();
+  }, [auth.isLoading, userId, loadFromDB, clearWorkspace]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -40,11 +49,22 @@ export default function Home() {
     e.preventDefault();
   }, []);
 
-  if (isLoading) {
+  if (auth.isLoading || (userId && isLoading)) {
     return (
       <div className="h-screen w-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted text-sm">Loading Note Hub...</div>
       </div>
+    );
+  }
+
+  if (!auth.user) {
+    return (
+      <LoginScreen
+        authError={auth.authError}
+        authMessage={auth.authMessage}
+        onSignIn={auth.signIn}
+        onSignUp={auth.signUp}
+      />
     );
   }
 
@@ -86,7 +106,7 @@ export default function Home() {
             className="p-1.5 rounded-md text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
             title="Toggle theme"
           >
-            {theme === 'dark' ? '☀' : '☾'}
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
           </button>
           <button
             onClick={() => createNote()}
@@ -95,8 +115,25 @@ export default function Home() {
             <Plus size={14} />
             New
           </button>
+          <span className="hidden max-w-[180px] truncate px-2 text-[11px] text-muted md:inline">
+            {auth.user.email}
+          </span>
+          <button
+            onClick={auth.signOut}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+            title="Sign out"
+          >
+            <LogOut size={14} />
+            <span className="hidden lg:inline">Sign out</span>
+          </button>
         </div>
       </header>
+
+      {syncError && (
+        <div className="border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300" role="alert">
+          {syncError}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {sidebarOpen && <Sidebar />}
