@@ -425,3 +425,13 @@ textarea {
   display: block;
   margin: 4px 0;
 }
+
+/* Project heading styles */
+.latex-preview .latex-resume-project {
+  margin: 8px 0;
+}
+
+.latex-preview .latex-resume-project-title {
+  font-weight: 600;
+  color: var(--foreground);
+}

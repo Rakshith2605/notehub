@@ -15,6 +15,9 @@ const SIMPLE_PATTERNS: RegExp[] = [
   /\\raggedright/g,
   /\\pdfgentounicode=\d+/g,
   /^%.*$/gm,
+  /\\\[\d+pt\]/g,  // \[2pt] spacing
+  /\[leftmargin=[^\]]*\]/g,  // [leftmargin=...]
+  /\[label=[^\]]*\]/g,  // [label=...]
 ];
 
 function skipBalancedBraces(src: string, start: number): number {
@@ -62,14 +65,46 @@ function stripNewcommand(src: string): string {
   return out;
 }
 
+function stripTitleformat(src: string): string {
+  // \titleformat{\section}{format}{label}{sep}{before}{after}
+  // Has 6 brace-delimited arguments
+  let out = '';
+  let i = 0;
+  while (i < src.length) {
+    const tfMatch = /^\\titleformat\{/.exec(src.slice(i));
+    if (!tfMatch) {
+      out += src[i++];
+      continue;
+    }
+    i += tfMatch[0].length;
+    // Skip 6 brace arguments
+    for (let j = 0; j < 6; j++) {
+      while (i < src.length && /\s/.test(src[i])) i++;
+      if (src[i] === '{') {
+        i = skipBalancedBraces(src, i);
+      }
+    }
+  }
+  return out;
+}
+
+function stripItemizeEnvs(src: string): string {
+  // Remove \begin{itemize}[...] and \end{itemize}
+  return src
+    .replace(/\\begin\{itemize\}(?:\[[^\]]*\])?/g, '')
+    .replace(/\\end\{itemize\}/g, '');
+}
+
 export function stripPreamble(src: string): string {
   let out = src;
   // Apply simple patterns first
   for (const pat of SIMPLE_PATTERNS) {
     out = out.replace(pat, '');
   }
-  // Then handle newcommand/renewcommand with nested braces
+  // Handle complex nested constructs
   out = stripNewcommand(out);
+  out = stripTitleformat(out);
+  out = stripItemizeEnvs(out);
   return out;
 }
 

@@ -57,6 +57,17 @@ export const RESUME_MACROS: Macro[] = [
     argCount: 0,
     render: () => `</div>`,
   },
+  {
+    name: 'resumeProjectHeading',
+    argCount: 2,
+    render: ([title, date], r) => `
+      <div class="latex-resume-project">
+        <div class="latex-resume-row">
+          <span class="latex-resume-project-title">${r(title)}</span>
+          <span class="latex-resume-date">${r(date)}</span>
+        </div>
+      </div>`,
+  },
   { 
     name: 'textbf', 
     argCount: 1, 
