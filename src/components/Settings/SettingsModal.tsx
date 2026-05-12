@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react';
 import PATManager from './PATManager';
+import MCPConfig from './MCPConfig';
 
 interface SettingsModalProps {
   open: boolean;
@@ -15,7 +16,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-lg border border-border bg-surface shadow-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-1">
           <h1 className="text-sm font-semibold text-foreground">Settings</h1>
           <button
             onClick={onClose}
@@ -24,7 +25,20 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             <X size={16} />
           </button>
         </div>
-        <PATManager />
+
+        <div className="border-t border-border my-4" />
+
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Personal Access Tokens</h2>
+          <PATManager />
+        </section>
+
+        <div className="border-t border-border my-4" />
+
+        <section>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">MCP Configuration</h2>
+          <MCPConfig />
+        </section>
       </div>
     </div>
   );
