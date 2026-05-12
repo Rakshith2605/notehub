@@ -12,6 +12,7 @@ type Segment =
   | { type: 'display-math'; math: string }
   | { type: 'heading'; level: 2 | 3 | 4; text: string }
   | { type: 'list'; ordered: boolean; items: InlinePart[][] }
+  | { type: 'center'; content: Segment[] }
   | { type: 'hr' };
 
 type InlinePart =
@@ -20,7 +21,8 @@ type InlinePart =
   | { kind: 'bold'; parts: InlinePart[] }
   | { kind: 'italic'; parts: InlinePart[] }
   | { kind: 'teletype'; text: string }
-  | { kind: 'underline'; text: string };
+  | { kind: 'underline'; text: string }
+  | { kind: 'link'; href: string; text: string };
 
 function parseInline(source: string): InlinePart[] {
   const mathTokens: string[] = [];
@@ -75,6 +77,14 @@ function parseInline(source: string): InlinePart[] {
       parts.push({ kind: 'underline', text: inner.content });
       continue;
     }
+    const hrefMatch = remaining.match(/^\\href\{/);
+    if (hrefMatch) {
+      const urlInner = extractBraced(remaining.slice(hrefMatch[0].length));
+      const textInner = extractBraced(urlInner.rest);
+      remaining = textInner.rest;
+      parts.push({ kind: 'link', href: urlInner.content, text: textInner.content });
+      continue;
+    }
     const mathMatch = remaining.match(/^\u0000IM(\d+)\u0000/);
     if (mathMatch) {
       parts.push({ kind: 'math', math: mathTokens[parseInt(mathMatch[1])] });
@@ -82,7 +92,7 @@ function parseInline(source: string): InlinePart[] {
       continue;
     }
 
-    const nextSpecial = remaining.search(/(\\textbf\{|\\textit\{|\\emph\{|\\texttt\{|\\underline\{|\u0000IM)/);
+    const nextSpecial = remaining.search(/(\\textbf\{|\\textit\{|\\emph\{|\\texttt\{|\\underline\{|\\href\{|\u0000IM)/);
     if (nextSpecial === -1) {
       parts.push({ kind: 'text', text: remaining });
       remaining = '';
@@ -127,6 +137,8 @@ function RenderInline({ parts }: { parts: InlinePart[] }) {
             return <code key={i} className="latex-tt">{p.text}</code>;
           case 'underline':
             return <u key={i}>{p.text}</u>;
+          case 'link':
+            return <a key={i} href={p.href} className="text-accent hover:underline">{p.text}</a>;
         }
       })}
     </>
@@ -156,6 +168,14 @@ function parseLatex(source: string): Segment[] {
   if (docMatch) {
     safe = docMatch[1];
   }
+
+  // Strip common formatting commands that don't affect semantic content
+  safe = safe
+    .replace(/\\(?:small|large|Large|LARGE|huge|Huge|tiny|normalsize)\b/g, '')
+    .replace(/\\(?:vspace|hspace)\{[^}]*\}/g, '')
+    .replace(/\\(?:quad|qquad|hfill|vfill)\b/g, ' ')
+    .replace(/\\(?:fa[A-Za-z]+)\b/g, '')  // FontAwesome icons
+    .replace(/\\(?:scshape|bfseries|itshape|rmfamily|sffamily|ttfamily)\b/g, '');
 
   const lines = safe.split('\n');
   let i = 0;
@@ -208,6 +228,21 @@ function parseLatex(source: string): Segment[] {
         i++;
       }
       segments.push({ type: 'list', ordered: isOrdered, items });
+      i++; continue;
+    }
+
+    // center environment
+    if (line === '\\begin{center}') {
+      const centerContent: Segment[] = [];
+      i++;
+      while (i < lines.length && lines[i].trim() !== '\\end{center}') {
+        const centerLine = lines[i].trim();
+        if (centerLine) {
+          centerContent.push({ type: 'text', parts: parseInline(centerLine) });
+        }
+        i++;
+      }
+      segments.push({ type: 'center', content: centerContent });
       i++; continue;
     }
 
@@ -267,6 +302,14 @@ export default function LatexPreview({ content }: LatexPreviewProps) {
                     ))}
                   </ul>
                 );
+            case 'center':
+              return (
+                <div key={idx} className="text-center my-2">
+                  {seg.content.map((s, i) => (
+                    s.type === 'text' ? <p key={i} className="my-1"><RenderInline parts={s.parts} /></p> : null
+                  ))}
+                </div>
+              );
             case 'hr':
               return <hr key={idx} className="border-border my-4" />;
             case 'text':
