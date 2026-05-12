@@ -27,3 +27,19 @@ export interface Tag {
   name: string;
   color: string;
 }
+
+export interface Pat {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: number;
+  lastUsedAt: number | null;
+}
+
+export interface NewPat {
+  id: string;
+  name: string;
+  prefix: string;
+  token: string;
+  createdAt: number;
+}

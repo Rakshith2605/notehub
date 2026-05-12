@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
 import { useAuth } from '@/hooks/useAuth';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -9,7 +9,8 @@ import EditorPane from '@/components/Editor/EditorPane';
 import StatusBar from '@/components/StatusBar';
 import CommandPalette from '@/components/CommandPalette';
 import LoginScreen from '@/components/Auth/LoginScreen';
-import { LogOut, Moon, Plus, PanelLeftClose, PanelLeft, Search, Sun } from 'lucide-react';
+import SettingsModal from '@/components/Settings/SettingsModal';
+import { LogOut, Moon, Plus, PanelLeftClose, PanelLeft, Search, Settings, Sun } from 'lucide-react';
 import { importFile } from '@/lib/export';
 
 export default function Home() {
@@ -17,6 +18,7 @@ export default function Home() {
   const userId = auth.user?.id || null;
   const { loadFromDB, clearWorkspace, isLoading, syncError, createNote, sidebarOpen, toggleSidebar, theme, setTheme, setSearchQuery, searchQuery } = useNoteStore();
   const { commandPaletteOpen, setCommandPaletteOpen } = useKeyboardShortcuts(Boolean(userId));
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (auth.isLoading) return;
@@ -109,6 +111,13 @@ export default function Home() {
             {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
           </button>
           <button
+            onClick={() => setSettingsOpen(true)}
+            className="p-1.5 rounded-md text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="Settings"
+          >
+            <Settings size={14} />
+          </button>
+          <button
             onClick={() => createNote()}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors ml-1"
           >
@@ -144,6 +153,7 @@ export default function Home() {
       </div>
 
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
