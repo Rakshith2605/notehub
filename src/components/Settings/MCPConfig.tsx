@@ -18,20 +18,12 @@ export default function MCPConfig() {
   const [apiUrl, setApiUrl] = useState('');
   const [latestPat, setLatestPat] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [serverPath, setServerPath] = useState('');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const origin = window.location.origin;
     setApiUrl(origin);
-
-    fetch('/api/mcp/server-path')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.serverPath) setServerPath(data.serverPath);
-      })
-      .catch(() => {});
 
     fetchWithAuth('/api/auth/pat/list')
       .then((data) => {
@@ -45,10 +37,15 @@ export default function MCPConfig() {
   const config = JSON.stringify({
     mcpServers: {
       notehub: {
-        command: 'node',
-        args: [serverPath || 'mcp-server/index.mjs'],
+        command: 'npx',
+        args: [
+          '-y',
+          'mcp-remote',
+          `${apiUrl || 'https://notehub-nine.vercel.app'}/api/mcp`,
+          '--header',
+          `Authorization: Bearer \${NOTEHUB_PAT}`,
+        ],
         env: {
-          NOTEHUB_API_URL: apiUrl || 'https://your-app.vercel.app',
           NOTEHUB_PAT: latestPat ? 'nhpat_YOUR_TOKEN' : 'nhpat_YOUR_TOKEN_HERE',
         },
       },
@@ -64,7 +61,9 @@ export default function MCPConfig() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">
-        Paste this into your MCP client config. No extra install needed — the server is a single file with zero dependencies.
+        Paste this into your MCP client config. Uses{' '}
+        <code className="px-1 rounded bg-surface-tertiary text-[11px]">mcp-remote</code> to connect
+        via HTTP — no local server file needed.
       </p>
 
       <div className="space-y-1.5">
@@ -79,21 +78,8 @@ export default function MCPConfig() {
           className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground font-mono outline-none focus:border-accent"
         />
         {apiUrl.includes('localhost') && (
-          <p className="text-[10px] text-amber-300">Running locally? Change this to your Vercel deployment URL.</p>
+          <p className="text-[10px] text-amber-300">Change to your Vercel deployment URL.</p>
         )}
-      </div>
-
-      <div className="space-y-1.5">
-        <label className="text-[10px] font-medium text-muted-foreground">
-          Server path <span className="text-muted">(auto-detected)</span>
-        </label>
-        <input
-          type="text"
-          value={serverPath}
-          onChange={(e) => setServerPath(e.target.value)}
-          placeholder="path/to/notehub/mcp-server/index.mjs"
-          className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground font-mono outline-none focus:border-accent"
-        />
       </div>
 
       <div className="relative">
@@ -116,15 +102,8 @@ export default function MCPConfig() {
       )}
 
       <p className="text-[10px] text-muted leading-relaxed">
-        This server uses the MCP stdio protocol (JSON-RPC over stdin/stdout).
-        It has <strong>zero npm dependencies</strong> — just Node.js built-ins.
-        Works with{' '}
-        <a href="https://docs.anthropic.com/en/docs/claude-code/mcp" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-          Claude Desktop
-        </a>,{' '}
-        <a href="https://opencode.ai" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-          OpenCode
-        </a>, and any MCP-compatible client.
+        No local files or install steps. <code className="px-1 rounded bg-surface-tertiary text-[11px]">npx mcp-remote</code> bridges
+        stdio to the NoteHub HTTP API. Works with Claude Desktop, OpenCode, and any MCP client.
       </p>
     </div>
   );
