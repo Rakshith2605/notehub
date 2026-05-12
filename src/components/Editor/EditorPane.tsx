@@ -7,6 +7,7 @@ import { useNoteStore } from '@/hooks/useNotes';
 import Toolbar from './Toolbar';
 import LanguageBadge from './LanguageBadge';
 import MarkdownPreview from './MarkdownPreview';
+import LatexPreview from './LatexPreview';
 import { mapLanguageToMonaco } from '@/lib/languages';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react').then((mod) => mod.default), {
@@ -142,6 +143,8 @@ export default function EditorPane() {
 
         {previewMode && note.language === 'markdown' ? (
           <MarkdownPreview content={note.content} />
+        ) : previewMode && note.language === 'latex' ? (
+          <LatexPreview content={note.content} />
         ) : (
           <div className="flex-1 flex overflow-hidden">
             <div className={`${splitView && (note.language === 'json' || note.language === 'yaml') ? 'w-1/2' : 'flex-1'} overflow-hidden`}>

@@ -234,3 +234,37 @@ textarea {
   border-radius: 0.5rem;
   max-width: 100%;
 }
+
+/* KaTeX math rendering */
+@import 'katex/dist/katex.min.css';
+
+.latex-display {
+  margin: 16px 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.latex-error {
+  color: var(--accent);
+  opacity: 0.6;
+}
+
+.latex-section {
+  border-bottom: 1px solid var(--border);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  padding-bottom: 6px;
+}
+
+.latex-subsection {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 18px 0 8px;
+}
+
+.latex-subsubsection {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 14px 0 6px;
+}

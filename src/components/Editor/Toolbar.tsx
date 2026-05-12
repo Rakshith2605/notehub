@@ -61,6 +61,7 @@ export default function Toolbar(props: ToolbarProps) {
   const isJson = note.language === 'json';
   const isYaml = note.language === 'yaml';
   const isMarkdown = note.language === 'markdown';
+  const isLatex = note.language === 'latex';
 
   return (
     <div className="flex-1 h-8 flex items-center gap-1 px-3 border-b border-border bg-surface-secondary shrink-0 overflow-x-auto">
@@ -122,7 +123,7 @@ export default function Toolbar(props: ToolbarProps) {
         </button>
       )}
 
-      {isMarkdown && (
+      {(isMarkdown || isLatex) && (
         <button
           onClick={() => setPreviewMode(!previewMode)}
           className={`p-1 rounded transition-colors ${previewMode ? 'text-accent bg-accent-muted' : 'text-muted hover:text-foreground hover:bg-surface-hover'}`}

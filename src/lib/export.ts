@@ -15,6 +15,7 @@ const EXTENSION_MAP: Record<string, string> = {
   yaml: '.yaml',
   toml: '.toml',
   markdown: '.md',
+  latex: '.tex',
   plaintext: '.txt',
   url: '.txt',
 };
@@ -336,6 +337,7 @@ function getLanguageLabel(language: string): string {
     yaml: 'YAML',
     toml: 'TOML',
     markdown: 'Markdown',
+    latex: 'LaTeX',
   };
   return labels[language] || language;
 }
