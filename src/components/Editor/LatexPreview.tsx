@@ -1,149 +1,288 @@
 'use client';
 
-import { useMemo } from 'react';
-import katex from 'katex';
+import { Fragment, useMemo } from 'react';
+import { InlineMath, BlockMath } from 'react-katex';
 
 interface LatexPreviewProps {
   content: string;
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+type Segment =
+  | { type: 'text'; parts: InlinePart[] }
+  | { type: 'inline-math'; math: string }
+  | { type: 'display-math'; math: string }
+  | { type: 'heading'; level: 2 | 3 | 4; text: string }
+  | { type: 'list-start'; ordered: boolean }
+  | { type: 'list-end' }
+  | { type: 'list-item'; parts: InlinePart[] }
+  | { type: 'hr' };
+
+type InlinePart =
+  | { kind: 'text'; text: string }
+  | { kind: 'math'; math: string }
+  | { kind: 'bold'; parts: InlinePart[] }
+  | { kind: 'italic'; parts: InlinePart[] }
+  | { kind: 'teletype'; text: string }
+  | { kind: 'underline'; text: string };
+
+function parseInline(source: string): InlinePart[] {
+  const mathTokens: string[] = [];
+  let safe = source;
+
+  // Protect $...$ inline math first
+  safe = safe.replace(/\$([^$\n]+?)\$/g, (_, m) => {
+    mathTokens.push(m.trim());
+    return `\u0000IM${mathTokens.length - 1}\u0000`;
+  });
+  safe = safe.replace(/\\\(([\s\S]*?)\\\)/g, (_, m) => {
+    mathTokens.push(m.trim());
+    return `\u0000IM${mathTokens.length - 1}\u0000`;
+  });
+
+  const parts: InlinePart[] = [];
+  let remaining = safe;
+
+  while (remaining.length > 0) {
+    const boldMatch = remaining.match(/^\\textbf\{/);
+    if (boldMatch) {
+      const inner = extractBraced(remaining.slice(boldMatch[0].length));
+      remaining = inner.rest;
+      parts.push({ kind: 'bold', parts: parseInline(inner.content) });
+      continue;
+    }
+    const italicMatch = remaining.match(/^\\textit\{/);
+    if (italicMatch) {
+      const inner = extractBraced(remaining.slice(italicMatch[0].length));
+      remaining = inner.rest;
+      parts.push({ kind: 'italic', parts: parseInline(inner.content) });
+      continue;
+    }
+    const emphMatch = remaining.match(/^\\emph\{/);
+    if (emphMatch) {
+      const inner = extractBraced(remaining.slice(emphMatch[0].length));
+      remaining = inner.rest;
+      parts.push({ kind: 'italic', parts: parseInline(inner.content) });
+      continue;
+    }
+    const ttMatch = remaining.match(/^\\texttt\{/);
+    if (ttMatch) {
+      const inner = extractBraced(remaining.slice(ttMatch[0].length));
+      remaining = inner.rest;
+      parts.push({ kind: 'teletype', text: inner.content });
+      continue;
+    }
+    const ulMatch = remaining.match(/^\\underline\{/);
+    if (ulMatch) {
+      const inner = extractBraced(remaining.slice(ulMatch[0].length));
+      remaining = inner.rest;
+      parts.push({ kind: 'underline', text: inner.content });
+      continue;
+    }
+    const mathMatch = remaining.match(/^\u0000IM(\d+)\u0000/);
+    if (mathMatch) {
+      parts.push({ kind: 'math', math: mathTokens[parseInt(mathMatch[1])] });
+      remaining = remaining.slice(mathMatch[0].length);
+      continue;
+    }
+
+    const nextSpecial = remaining.search(/(\\textbf\{|\\textit\{|\\emph\{|\\texttt\{|\\underline\{|\u0000IM)/);
+    if (nextSpecial === -1) {
+      parts.push({ kind: 'text', text: remaining });
+      remaining = '';
+    } else {
+      parts.push({ kind: 'text', text: remaining.slice(0, nextSpecial) });
+      remaining = remaining.slice(nextSpecial);
+    }
+  }
+
+  return parts;
 }
 
-function renderLatexToHtml(source: string): string {
-  let text = source;
+function extractBraced(source: string): { content: string; rest: string } {
+  let depth = 1;
+  let i = 0;
+  while (i < source.length && depth > 0) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}') depth--;
+    i++;
+  }
+  return { content: source.slice(0, i - 1), rest: source.slice(i) };
+}
 
-  // Protect math blocks from other processing
-  const mathBlocks: string[] = [];
-  let idx = 0;
+function RenderInline({ parts }: { parts: InlinePart[] }) {
+  return (
+    <>
+      {parts.map((p, i) => {
+        switch (p.kind) {
+          case 'text':
+            return <Fragment key={i}>{p.text}</Fragment>;
+          case 'math':
+            return <InlineMath key={i} math={p.math} />;
+          case 'bold':
+            return <strong key={i}><RenderInline parts={p.parts} /></strong>;
+          case 'italic':
+            return <em key={i}><RenderInline parts={p.parts} /></em>;
+          case 'teletype':
+            return <code key={i} className="latex-tt">{p.text}</code>;
+          case 'underline':
+            return <u key={i}>{p.text}</u>;
+        }
+      })}
+    </>
+  );
+}
 
-  // Display math $$...$$
-  text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
-    const token = `\u0000MATH${idx}\u0000`;
-    try {
-      mathBlocks[idx] = `<div class="latex-display">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })}</div>`;
-    } catch {
-      mathBlocks[idx] = `<div class="latex-display latex-error">$$${escapeHtml(math)}$</div>`;
-    }
-    idx++;
-    return token;
+function parseLatex(source: string): Segment[] {
+  const segments: Segment[] = [];
+  const mathTokens: string[] = [];
+
+  let safe = source;
+
+  // $$...$$ display math
+  safe = safe.replace(/\$\$([\s\S]*?)\$\$/g, (_, m) => {
+    mathTokens.push(m.trim());
+    return `\u0000DM${mathTokens.length - 1}\u0000`;
   });
-
-  // Inline math $...$
-  text = text.replace(/\$([^$\n]+?)\$/g, (_, math) => {
-    const token = `\u0000MATH${idx}\u0000`;
-    try {
-      mathBlocks[idx] = katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
-    } catch {
-      mathBlocks[idx] = `<span class="latex-error">$${escapeHtml(math)}$</span>`;
-    }
-    idx++;
-    return token;
-  });
-
   // \[...\] display math
-  text = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
-    const token = `\u0000MATH${idx}\u0000`;
-    try {
-      mathBlocks[idx] = `<div class="latex-display">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })}</div>`;
-    } catch {
-      mathBlocks[idx] = `<div class="latex-display latex-error">\\[${escapeHtml(math)}\\]</div>`;
-    }
-    idx++;
-    return token;
+  safe = safe.replace(/\\\[([\s\S]*?)\\\]/g, (_, m) => {
+    mathTokens.push(m.trim());
+    return `\u0000DM${mathTokens.length - 1}\u0000`;
   });
 
-  // \(...\) inline math
-  text = text.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
-    const token = `\u0000MATH${idx}\u0000`;
-    try {
-      mathBlocks[idx] = katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
-    } catch {
-      mathBlocks[idx] = `<span class="latex-error">\\(${escapeHtml(math)}\\)</span>`;
-    }
-    idx++;
-    return token;
-  });
-
-  // Strip preamble lines (keep their content but don't render as text)
-  text = text
+  // Strip preamble
+  safe = safe
     .replace(/^\\documentclass\{[^}]*\}/gm, '')
     .replace(/^\\usepackage(?:\[[^\]]*\])?\{[^}]*\}/gm, '')
-    .replace(/^\\title\{([^}]*)\}/gm, '')
-    .replace(/^\\author\{([^}]*)\}/gm, '')
-    .replace(/^\\date\{([^}]*)\}/gm, '');
+    .replace(/^\\title\{[^}]*\}/gm, '')
+    .replace(/^\\author\{[^}]*\}/gm, '')
+    .replace(/^\\date\{[^}]*\}/gm, '');
+  safe = safe.replace(/\\begin\{document\}/g, '').replace(/\\end\{document\}/g, '');
 
-  // Strip \begin{document} / \end{document}
-  text = text.replace(/\\begin\{document\}/g, '').replace(/\\end\{document\}/g, '');
+  const lines = safe.split('\n');
+  let i = 0;
 
-  // Headings
-  text = text.replace(/\\section\*?\{([^}]*)\}/g, '<h2 class="latex-section">$1</h2>');
-  text = text.replace(/\\subsection\*?\{([^}]*)\}/g, '<h3 class="latex-subsection">$1</h3>');
-  text = text.replace(/\\subsubsection\*?\{([^}]*)\}/g, '<h4 class="latex-subsubsection">$1</h4>');
+  while (i < lines.length) {
+    const line = lines[i].trim();
 
-  // Text formatting (handle up to 2 levels of nesting)
-  text = text.replace(/\\textbf\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<strong>$1</strong>');
-  text = text.replace(/\\textit\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<em>$1</em>');
-  text = text.replace(/\\texttt\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<code class="latex-tt">$1</code>');
-  text = text.replace(/\\emph\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<em>$1</em>');
-  text = text.replace(/\\underline\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<u>$1</u>');
+    if (!line) { i++; continue; }
 
-  // Lists
-  text = text.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (_, inner) => {
-    const items = inner.replace(/\\item\s*/g, '<li>').replace(/(?<=<\/li>)\s*(?=<li>)/g, '');
-    return `<ul class="latex-list">${items}</ul>`;
-  });
-  text = text.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (_, inner) => {
-    const items = inner.replace(/\\item\s*/g, '<li>').replace(/(?<=<\/li>)\s*(?=<li>)/g, '');
-    return `<ol class="latex-list">${items}</ol>`;
-  });
+    if (line === '\\begin{document}' || line === '\\end{document}') { i++; continue; }
 
-  // Line breaks
-  text = text.replace(/\\\\/g, '<br />');
+    // Display math token
+    const dmMatch = line.match(/^\u0000DM(\d+)\u0000$/);
+    if (dmMatch) {
+      segments.push({ type: 'display-math', math: mathTokens[parseInt(dmMatch[1])] });
+      i++; continue;
+    }
 
-  // escape remaining HTML-like content
-  text = text.replace(/&(?!(?:amp|lt|gt|quot|#\d+);)/g, '&amp;');
-  text = text.replace(/</g, '&lt;');
-  text = text.replace(/>/g, '&gt;');
+    // Headings
+    const secMatch = line.match(/^\\section\*?\{([^}]*)\}/);
+    if (secMatch) {
+      segments.push({ type: 'heading', level: 2, text: secMatch[1] });
+      i++; continue;
+    }
+    const subMatch = line.match(/^\\subsection\*?\{([^}]*)\}/);
+    if (subMatch) {
+      segments.push({ type: 'heading', level: 3, text: subMatch[1] });
+      i++; continue;
+    }
+    const ssubMatch = line.match(/^\\subsubsection\*?\{([^}]*)\}/);
+    if (ssubMatch) {
+      segments.push({ type: 'heading', level: 4, text: ssubMatch[1] });
+      i++; continue;
+    }
 
-  // Put math blocks back
-  mathBlocks.forEach((block, i) => {
-    text = text.replace(`\u0000MATH${i}\u0000`, block);
-  });
+    // itemize
+    if (line === '\\begin{itemize}') {
+      segments.push({ type: 'list-start', ordered: false });
+      i++;
+      while (i < lines.length && lines[i].trim() !== '\\end{itemize}') {
+        const itemMatch = lines[i].trim().match(/^\\item\s+(.*)/);
+        if (itemMatch) {
+          segments.push({ type: 'list-item', parts: parseInline(itemMatch[1]) });
+        }
+        i++;
+      }
+      segments.push({ type: 'list-end' });
+      i++; continue;
+    }
 
-  // Wrap paragraphs — split on double newlines
-  const paragraphs = text.split(/\n\s*\n/);
-  const html = paragraphs.map((p) => {
-    const trimmed = p.trim();
-    if (!trimmed) return '';
-    // Don't wrap headings, display math, or lists in <p>
-    if (/^<(h[234]|div|ul|ol)/.test(trimmed)) return trimmed;
-    return `<p>${trimmed}</p>`;
-  });
+    // enumerate
+    if (line === '\\begin{enumerate}') {
+      segments.push({ type: 'list-start', ordered: true });
+      i++;
+      while (i < lines.length && lines[i].trim() !== '\\end{enumerate}') {
+        const itemMatch = lines[i].trim().match(/^\\item\s+(.*)/);
+        if (itemMatch) {
+          segments.push({ type: 'list-item', parts: parseInline(itemMatch[1]) });
+        }
+        i++;
+      }
+      segments.push({ type: 'list-end' });
+      i++; continue;
+    }
 
-  return html.join('\n');
+    // hr
+    if (/^\\hrulefill?$/.test(line)) {
+      segments.push({ type: 'hr' });
+      i++; continue;
+    }
+
+    // Normal text with possible line breaks
+    segments.push({ type: 'text', parts: parseInline(line.replace(/\\\\/g, '\n')) });
+    i++;
+  }
+
+  return segments;
 }
 
 export default function LatexPreview({ content }: LatexPreviewProps) {
-  const html = useMemo(() => renderLatexToHtml(content), [content]);
+  const segments = useMemo(() => parseLatex(content), [content]);
+
+  if (!content.trim()) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-editor text-muted text-sm">
+        No LaTeX content to preview
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 overflow-auto bg-editor px-6 py-5 text-sm leading-6 text-foreground">
-      {!content.trim() ? (
-        <div className="flex items-center justify-center h-full text-muted">
-          No LaTeX content to preview
-        </div>
-      ) : (
-        <div
-          className="latex-preview"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      )}
+    <div className="flex-1 overflow-auto bg-editor">
+      <div className="max-w-[48rem] mx-auto px-6 py-5 text-sm leading-6 text-foreground latex-preview">
+        {segments.map((seg, idx) => {
+          switch (seg.type) {
+            case 'display-math':
+              return <BlockMath key={idx} math={seg.math} />;
+            case 'heading':
+              if (seg.level === 2) return <h2 key={idx} className="border-b border-border text-xl font-semibold pb-2 mt-7 mb-3">{seg.text}</h2>;
+              if (seg.level === 3) return <h3 key={idx} className="text-base font-semibold mt-5 mb-2">{seg.text}</h3>;
+              return <h4 key={idx} className="text-sm font-semibold mt-4 mb-1.5">{seg.text}</h4>;
+            case 'list-start':
+              return seg.ordered
+                ? <ol key={idx} className="list-decimal pl-6 my-2.5 space-y-0.5" />
+                : <ul key={idx} className="list-disc pl-6 my-2.5 space-y-0.5" />;
+            case 'list-end':
+              return null;
+            case 'list-item':
+              return <li key={idx}><RenderInline parts={seg.parts} /></li>;
+            case 'hr':
+              return <hr key={idx} className="border-border my-4" />;
+            case 'text':
+              return (
+                <p key={idx} className="my-2">
+                  {seg.parts.length > 0 ? (
+                    <RenderInline parts={seg.parts} />
+                  ) : (
+                    seg.toString()
+                  )}
+                </p>
+              );
+            default:
+              return null;
+          }
+        })}
+      </div>
     </div>
   );
 }
