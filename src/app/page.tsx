@@ -116,7 +116,7 @@ export default function Home() {
             New
           </button>
           <span className="hidden max-w-[180px] truncate px-2 text-[11px] text-muted md:inline">
-            {auth.user.email}
+            {auth.username}
           </span>
           <button
             onClick={auth.signOut}

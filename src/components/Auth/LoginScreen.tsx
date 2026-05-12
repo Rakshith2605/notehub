@@ -6,13 +6,13 @@ import { Loader2, LogIn, UserPlus } from 'lucide-react';
 interface LoginScreenProps {
   authError: string | null;
   authMessage: string | null;
-  onSignIn: (email: string, password: string) => Promise<boolean>;
-  onSignUp: (email: string, password: string) => Promise<boolean>;
+  onSignIn: (username: string, password: string) => Promise<boolean>;
+  onSignUp: (username: string, password: string) => Promise<boolean>;
 }
 
 export default function LoginScreen({ authError, authMessage, onSignIn, onSignUp }: LoginScreenProps) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -22,8 +22,8 @@ export default function LoginScreen({ authError, authMessage, onSignIn, onSignUp
     event.preventDefault();
     setIsSubmitting(true);
     const succeeded = isSignIn
-      ? await onSignIn(email.trim(), password)
-      : await onSignUp(email.trim(), password);
+      ? await onSignIn(username.trim(), password)
+      : await onSignUp(username.trim(), password);
     if (!succeeded) setPassword('');
     setIsSubmitting(false);
   };
@@ -59,16 +59,16 @@ export default function LoginScreen({ authError, authMessage, onSignIn, onSignUp
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label htmlFor="email" className="mb-1 block text-[11px] font-medium text-muted-foreground">Email</label>
+            <label htmlFor="username" className="mb-1 block text-[11px] font-medium text-muted-foreground">Username</label>
             <input
-              id="email"
-              type="email"
-              autoComplete="email"
+              id="username"
+              type="text"
+              autoComplete="username"
               required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-accent"
-              placeholder="you@example.com"
+              placeholder={isSignIn ? 'Your username' : 'Pick a username'}
             />
           </div>
 
