@@ -238,6 +238,10 @@ textarea {
 /* KaTeX math rendering */
 @import 'katex/dist/katex.min.css';
 
+.latex-preview {
+  max-width: 48rem;
+}
+
 .latex-display {
   margin: 16px 0;
   overflow-x: auto;
@@ -245,26 +249,73 @@ textarea {
 }
 
 .latex-error {
-  color: var(--accent);
-  opacity: 0.6;
+  color: #f87171;
+  opacity: 0.7;
+  font-style: italic;
 }
 
 .latex-section {
   border-bottom: 1px solid var(--border);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
-  margin: 24px 0 12px;
-  padding-bottom: 6px;
+  line-height: 1.3;
+  margin: 28px 0 14px;
+  padding-bottom: 8px;
 }
 
 .latex-subsection {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
-  margin: 18px 0 8px;
+  line-height: 1.3;
+  margin: 22px 0 10px;
 }
 
 .latex-subsubsection {
   font-size: 13px;
   font-weight: 600;
-  margin: 14px 0 6px;
+  line-height: 1.3;
+  margin: 16px 0 8px;
+}
+
+.latex-list {
+  margin: 10px 0;
+  padding-left: 24px;
+}
+
+.latex-list li {
+  margin: 3px 0;
+}
+
+.latex-tt {
+  background: var(--surface-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  padding: 1px 4px;
+}
+
+/* KaTeX dark theme overrides */
+.latex-preview .katex {
+  color: var(--foreground);
+  font-size: 1.1em;
+}
+
+.latex-preview .katex-display {
+  margin: 16px 0;
+}
+
+.latex-preview .katex-display > .katex {
+  font-size: 1.21em;
+}
+
+.latex-preview .katex .mord,
+.latex-preview .katex .mbin,
+.latex-preview .katex .mrel,
+.latex-preview .katex .minner,
+.latex-preview .katex .mclose,
+.latex-preview .katex .mopen,
+.latex-preview .katex .mpunct,
+.latex-preview .katex .mtext {
+  color: var(--foreground);
 }
