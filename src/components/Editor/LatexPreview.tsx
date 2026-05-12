@@ -150,14 +150,12 @@ function parseLatex(source: string): Segment[] {
     return `\u0000DM${mathTokens.length - 1}\u0000`;
   });
 
-  // Strip preamble
-  safe = safe
-    .replace(/^\\documentclass\{[^}]*\}/gm, '')
-    .replace(/^\\usepackage(?:\[[^\]]*\])?\{[^}]*\}/gm, '')
-    .replace(/^\\title\{[^}]*\}/gm, '')
-    .replace(/^\\author\{[^}]*\}/gm, '')
-    .replace(/^\\date\{[^}]*\}/gm, '');
-  safe = safe.replace(/\\begin\{document\}/g, '').replace(/\\end\{document\}/g, '');
+  // Extract only the document body (between \begin{document} and \end{document})
+  // If no document environment found, use the whole content
+  const docMatch = safe.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
+  if (docMatch) {
+    safe = docMatch[1];
+  }
 
   const lines = safe.split('\n');
   let i = 0;
@@ -167,7 +165,8 @@ function parseLatex(source: string): Segment[] {
 
     if (!line) { i++; continue; }
 
-    if (line === '\\begin{document}' || line === '\\end{document}') { i++; continue; }
+    // Skip comments
+    if (line.startsWith('%')) { i++; continue; }
 
     // Display math token
     const dmMatch = line.match(/^\u0000DM(\d+)\u0000$/);
