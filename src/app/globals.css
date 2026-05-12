@@ -236,7 +236,7 @@ textarea {
 }
 
 /* KaTeX math rendering */
-@import 'katex/dist/katex.min.css';
+/* katex CSS imported via layout.tsx as JS import for reliable loading */
 
 .latex-preview {
   max-width: 48rem;

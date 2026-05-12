@@ -9,12 +9,9 @@ interface LatexPreviewProps {
 
 type Segment =
   | { type: 'text'; parts: InlinePart[] }
-  | { type: 'inline-math'; math: string }
   | { type: 'display-math'; math: string }
   | { type: 'heading'; level: 2 | 3 | 4; text: string }
-  | { type: 'list-start'; ordered: boolean }
-  | { type: 'list-end' }
-  | { type: 'list-item'; parts: InlinePart[] }
+  | { type: 'list'; ordered: boolean; items: InlinePart[][] }
   | { type: 'hr' };
 
 type InlinePart =
@@ -110,6 +107,10 @@ function extractBraced(source: string): { content: string; rest: string } {
 }
 
 function RenderInline({ parts }: { parts: InlinePart[] }) {
+  const renderError = (error: Error) => (
+    <span className="latex-error" title={error.message}>?!</span>
+  );
+
   return (
     <>
       {parts.map((p, i) => {
@@ -117,7 +118,7 @@ function RenderInline({ parts }: { parts: InlinePart[] }) {
           case 'text':
             return <Fragment key={i}>{p.text}</Fragment>;
           case 'math':
-            return <InlineMath key={i} math={p.math} />;
+            return <InlineMath key={i} math={p.math} renderError={renderError} />;
           case 'bold':
             return <strong key={i}><RenderInline parts={p.parts} /></strong>;
           case 'italic':
@@ -192,33 +193,22 @@ function parseLatex(source: string): Segment[] {
       i++; continue;
     }
 
-    // itemize
-    if (line === '\\begin{itemize}') {
-      segments.push({ type: 'list-start', ordered: false });
+    // itemize / enumerate
+    const ulMatch = line.match(/^\\begin\{itemize\}$/);
+    const enMatch = line.match(/^\\begin\{enumerate\}$/);
+    if (ulMatch || enMatch) {
+      const envName = ulMatch ? 'itemize' : 'enumerate';
+      const isOrdered = !!enMatch;
+      const items: InlinePart[][] = [];
       i++;
-      while (i < lines.length && lines[i].trim() !== '\\end{itemize}') {
+      while (i < lines.length && lines[i].trim() !== `\\end{${envName}}`) {
         const itemMatch = lines[i].trim().match(/^\\item\s+(.*)/);
         if (itemMatch) {
-          segments.push({ type: 'list-item', parts: parseInline(itemMatch[1]) });
+          items.push(parseInline(itemMatch[1]));
         }
         i++;
       }
-      segments.push({ type: 'list-end' });
-      i++; continue;
-    }
-
-    // enumerate
-    if (line === '\\begin{enumerate}') {
-      segments.push({ type: 'list-start', ordered: true });
-      i++;
-      while (i < lines.length && lines[i].trim() !== '\\end{enumerate}') {
-        const itemMatch = lines[i].trim().match(/^\\item\s+(.*)/);
-        if (itemMatch) {
-          segments.push({ type: 'list-item', parts: parseInline(itemMatch[1]) });
-        }
-        i++;
-      }
-      segments.push({ type: 'list-end' });
+      segments.push({ type: 'list', ordered: isOrdered, items });
       i++; continue;
     }
 
@@ -251,31 +241,39 @@ export default function LatexPreview({ content }: LatexPreviewProps) {
     <div className="flex-1 overflow-auto bg-editor">
       <div className="max-w-[48rem] mx-auto px-6 py-5 text-sm leading-6 text-foreground latex-preview">
         {segments.map((seg, idx) => {
+          const renderError = (error: Error) => (
+            <span className="latex-error block text-xs" title={error.message}>LaTeX error: {error.message}</span>
+          );
+
           switch (seg.type) {
             case 'display-math':
-              return <BlockMath key={idx} math={seg.math} />;
+              return <BlockMath key={idx} math={seg.math} renderError={renderError} />;
             case 'heading':
               if (seg.level === 2) return <h2 key={idx} className="border-b border-border text-xl font-semibold pb-2 mt-7 mb-3">{seg.text}</h2>;
               if (seg.level === 3) return <h3 key={idx} className="text-base font-semibold mt-5 mb-2">{seg.text}</h3>;
               return <h4 key={idx} className="text-sm font-semibold mt-4 mb-1.5">{seg.text}</h4>;
-            case 'list-start':
+            case 'list':
               return seg.ordered
-                ? <ol key={idx} className="list-decimal pl-6 my-2.5 space-y-0.5" />
-                : <ul key={idx} className="list-disc pl-6 my-2.5 space-y-0.5" />;
-            case 'list-end':
-              return null;
-            case 'list-item':
-              return <li key={idx}><RenderInline parts={seg.parts} /></li>;
+                ? (
+                  <ol key={idx} className="list-decimal pl-6 my-2.5 space-y-0.5">
+                    {seg.items.map((itemParts, liIdx) => (
+                      <li key={liIdx}><RenderInline parts={itemParts} /></li>
+                    ))}
+                  </ol>
+                )
+                : (
+                  <ul key={idx} className="list-disc pl-6 my-2.5 space-y-0.5">
+                    {seg.items.map((itemParts, liIdx) => (
+                      <li key={liIdx}><RenderInline parts={itemParts} /></li>
+                    ))}
+                  </ul>
+                );
             case 'hr':
               return <hr key={idx} className="border-border my-4" />;
             case 'text':
               return (
                 <p key={idx} className="my-2">
-                  {seg.parts.length > 0 ? (
-                    <RenderInline parts={seg.parts} />
-                  ) : (
-                    seg.toString()
-                  )}
+                  <RenderInline parts={seg.parts} />
                 </p>
               );
             default:
