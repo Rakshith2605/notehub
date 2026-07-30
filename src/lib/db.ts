@@ -239,18 +239,14 @@ function toClipboardItem(row: ClipboardRow): ClipboardItem {
   };
 }
 
-export async function getClipboardItems(userId: string, since?: number): Promise<ClipboardItem[]> {
-  let q = getSupabase()
+export async function getClipboardItems(userId: string, limit = 50): Promise<ClipboardItem[]> {
+  const { data, error } = await getSupabase()
     .from(CLIPBOARD_TABLE)
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(limit);
 
-  if (since !== undefined) {
-    q = q.gt('created_at', since);
-  }
-
-  const { data, error } = await q;
   if (error) fail('Unable to load clipboard from Supabase', error);
   return (data || []).map((row) => toClipboardItem(row as ClipboardRow));
 }
@@ -258,15 +254,12 @@ export async function getClipboardItems(userId: string, since?: number): Promise
 export async function saveClipboardItem(userId: string, item: ClipboardItem): Promise<void> {
   const { error } = await getSupabase()
     .from(CLIPBOARD_TABLE)
-    .upsert(
-      {
-        id: item.id,
-        user_id: userId,
-        content: item.content,
-        created_at: item.createdAt,
-      },
-      { onConflict: 'id' }
-    );
+    .insert({
+      id: item.id,
+      user_id: userId,
+      content: item.content,
+      created_at: item.createdAt,
+    });
 
   if (error) fail('Unable to save clipboard to Supabase', error);
 }
@@ -279,14 +272,4 @@ export async function deleteClipboardItem(userId: string, id: string): Promise<v
     .eq('id', id);
 
   if (error) fail('Unable to delete clipboard item from Supabase', error);
-}
-
-export async function deleteOldClipboardItems(userId: string, before: number): Promise<void> {
-  const { error } = await getSupabase()
-    .from(CLIPBOARD_TABLE)
-    .delete()
-    .eq('user_id', userId)
-    .lt('created_at', before);
-
-  if (error) fail('Unable to cleanup clipboard in Supabase', error);
 }

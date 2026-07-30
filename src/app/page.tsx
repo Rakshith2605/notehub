@@ -25,10 +25,11 @@ export default function Home() {
     if (auth.isLoading) return;
     if (userId) {
       void loadFromDB(userId);
+      void loadClipboardItems();
       return;
     }
     clearWorkspace();
-  }, [auth.isLoading, userId, loadFromDB, clearWorkspace]);
+  }, [auth.isLoading, userId, loadFromDB, loadClipboardItems, clearWorkspace]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -39,7 +40,7 @@ export default function Home() {
     }
   }, [setTheme]);
 
-  // Clipboard mode: 50ms polling for real-time sync
+  // Clipboard mode: poll for cross-device sync
   useEffect(() => {
     if (!clipboardMode || !userId) return;
 
@@ -54,7 +55,7 @@ export default function Home() {
     };
 
     poll();
-    const interval = setInterval(poll, 50);
+    const interval = setInterval(poll, 1000);
 
     return () => {
       isMounted = false;

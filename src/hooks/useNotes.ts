@@ -44,6 +44,8 @@ interface NoteStore {
   deleteClipboardItem: (id: string) => void;
 }
 
+const MAX_CLIPBOARD_ITEMS = 50;
+
 function generateTitle(content: string): string {
   const firstLine = content.split('\n')[0]?.trim() || '';
   return firstLine.slice(0, 60) || 'Untitled';
@@ -248,22 +250,22 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     const userId = get().activeUserId;
     if (!userId) return;
 
-    const now = Date.now();
+    const existing = get().clipboardItems;
+    // Pasting the same content again changes nothing: it is already the current clipboard.
+    if (existing[0]?.content === content) return;
+
     const item: ClipboardItem = {
       id: nanoid(),
       content,
-      createdAt: now,
+      createdAt: Date.now(),
     };
 
-    set((s) => ({ clipboardItems: [item, ...s.clipboardItems] }));
+    const overflow = existing.slice(MAX_CLIPBOARD_ITEMS - 1);
+    set((s) => ({ clipboardItems: [item, ...s.clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS) }));
 
     try {
       await db.saveClipboardItem(userId, item);
-      const cutoff = now - 24 * 60 * 60 * 1000;
-      await db.deleteOldClipboardItems(userId, cutoff);
-      set((s) => ({
-        clipboardItems: s.clipboardItems.filter((i) => i.createdAt >= cutoff),
-      }));
+      await Promise.all(overflow.map((old) => db.deleteClipboardItem(userId, old.id)));
     } catch (error) {
       console.error('Failed to sync clipboard item:', error);
     }
@@ -275,9 +277,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
     try {
       const items = await db.getClipboardItems(userId);
-      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-      const filtered = items.filter((i) => i.createdAt >= cutoff);
-      set({ clipboardItems: filtered });
+      set({ clipboardItems: items });
     } catch (error) {
       console.error('Failed to load clipboard items:', error);
     }

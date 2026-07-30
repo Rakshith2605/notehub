@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
-import { Clipboard, ClipboardPaste, Trash2, Clock } from 'lucide-react';
+import { Clipboard, ClipboardPaste, Trash2, Clock, Copy, Check } from 'lucide-react';
 
 function relativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
@@ -20,7 +20,10 @@ function relativeTime(timestamp: number): string {
 export default function ClipboardPane() {
   const { clipboardItems, addClipboardItem, deleteClipboardItem } = useNoteStore();
   const [pasted, setPasted] = useState(false);
+  const [copied, setCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const currentContent = clipboardItems[0]?.content ?? '';
 
   useEffect(() => {
     // Auto-focus the paste area when entering clipboard mode
@@ -37,6 +40,24 @@ export default function ClipboardPane() {
     }
   };
 
+  const handleCopy = async () => {
+    if (!currentContent) return;
+    try {
+      await navigator.clipboard.writeText(currentContent);
+    } catch {
+      // Fallback for environments where the async clipboard API is unavailable
+      const ta = textareaRef.current;
+      if (ta) {
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        ta.blur();
+      }
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
@@ -44,7 +65,7 @@ export default function ClipboardPane() {
         <span className="text-sm font-medium text-foreground">Clipboard Mode</span>
         <span className="text-[10px] text-muted ml-auto flex items-center gap-1">
           <Clock size={10} />
-          Syncing every 50ms
+          Syncing every second
         </span>
       </div>
 
@@ -60,13 +81,29 @@ export default function ClipboardPane() {
             )}
           </div>
 
-          <textarea
-            ref={textareaRef}
-            onPaste={handleTextareaPaste}
-            placeholder="Paste here or press Ctrl+V / Cmd+V..."
-            className="w-full h-40 bg-surface-secondary border border-border rounded-md p-3 text-sm text-foreground placeholder-muted outline-none resize-none focus:border-accent focus:ring-1 focus:ring-accent"
-            readOnly={false}
-          />
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={currentContent}
+              onPaste={handleTextareaPaste}
+              placeholder="Paste here or press Ctrl+V / Cmd+V..."
+              className="w-full h-40 bg-surface-secondary border border-border rounded-md p-3 pr-24 text-sm text-foreground placeholder-muted outline-none resize-none focus:border-accent focus:ring-1 focus:ring-accent"
+              readOnly
+            />
+            <button
+              onClick={handleCopy}
+              disabled={!currentContent}
+              className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                copied
+                  ? 'bg-accent-muted text-accent border-accent/30'
+                  : 'bg-surface-tertiary text-muted border-border hover:text-foreground hover:border-muted'
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              title="Copy current clipboard"
+            >
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
 
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
