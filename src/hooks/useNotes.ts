@@ -14,6 +14,7 @@ interface NoteStore {
   searchQuery: string;
   sortBy: 'newest' | 'oldest' | 'modified' | 'alpha';
   sidebarOpen: boolean;
+  activeFolderId: string | null;
   theme: 'dark' | 'light';
   clipboardMode: boolean;
   clipboardItems: ClipboardItem[];
@@ -33,6 +34,7 @@ interface NoteStore {
   addTagToNote: (noteId: string, tagId: string) => void;
   removeTagFromNote: (noteId: string, tagId: string) => void;
   setNoteFolder: (noteId: string, folderId: string | null) => void;
+  setActiveFolder: (folderId: string | null) => void;
   togglePin: (noteId: string) => void;
   setSearchQuery: (query: string) => void;
   setSortBy: (sort: 'newest' | 'oldest' | 'modified' | 'alpha') => void;
@@ -95,6 +97,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   searchQuery: '',
   sortBy: 'newest',
   sidebarOpen: true,
+  activeFolderId: null,
   theme: 'dark',
   clipboardMode: false,
   clipboardItems: [],
@@ -126,7 +129,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     if (clipboardSaveTimer) clearTimeout(clipboardSaveTimer);
     pendingClipboardEdit = null;
     lastPersistedSnapshot = '';
-    set({ activeUserId: null, notes: [], folders: [], tags: [], selectedNoteId: null, isLoading: false, syncError: null, clipboardItems: [], clipboardEditing: false });
+    set({ activeUserId: null, notes: [], folders: [], tags: [], selectedNoteId: null, isLoading: false, syncError: null, clipboardItems: [], clipboardEditing: false, activeFolderId: null });
   },
 
   createNote: (content?: string) => {
@@ -137,7 +140,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       title: generateTitle(body),
       content: body,
       language: 'plaintext',
-      folderId: null,
+      folderId: get().activeFolderId,
       tags: [],
       pinned: false,
       createdAt: now,
@@ -187,6 +190,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     set((s) => ({
       folders: s.folders.filter((f) => f.id !== id),
       notes: s.notes.map((n) => (n.folderId === id ? { ...n, folderId: null } : n)),
+      activeFolderId: s.activeFolderId === id ? null : s.activeFolderId,
     }));
     if (userId) void db.deleteFolder(userId, id).catch(console.error);
   },
@@ -240,6 +244,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       notes: s.notes.map((n) => (n.id === noteId ? { ...n, folderId } : n)),
     }));
   },
+
+  setActiveFolder: (folderId) => set({ activeFolderId: folderId }),
 
   togglePin: (noteId) => {
     set((s) => ({

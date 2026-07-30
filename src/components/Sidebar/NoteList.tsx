@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
-import { Pin, PinOff, Trash2, MoreHorizontal } from 'lucide-react';
+import { Pin, PinOff, Trash2, MoreHorizontal, FolderInput, Folder as FolderIcon, X } from 'lucide-react';
 import { getLanguageColor } from '@/lib/languages';
 import { getTagColor } from '@/lib/tagColors';
 
@@ -26,15 +26,19 @@ const SORT_OPTIONS = [
 ];
 
 export default function NoteList() {
-  const { notes, selectedNoteId, selectNote, togglePin, deleteNote, searchQuery, sortBy, setSortBy, tags } = useNoteStore();
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; noteId: string } | null>(null);
+  const { notes, folders, selectedNoteId, selectNote, togglePin, deleteNote, searchQuery, sortBy, setSortBy, tags, activeFolderId, setActiveFolder, setNoteFolder } = useNoteStore();
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; noteId: string; view: 'main' | 'move' } | null>(null);
 
   const tagMap = new Map(tags.map((t) => [t.id, t]));
   const searchLower = searchQuery.toLowerCase();
+  const activeFolder = activeFolderId ? folders.find((f) => f.id === activeFolderId) : undefined;
 
+  // Search is global; otherwise the open folder filters the list
   const filtered = searchQuery
     ? notes.filter((n) => n.title.toLowerCase().includes(searchLower) || n.content.toLowerCase().includes(searchLower))
-    : notes;
+    : activeFolderId
+      ? notes.filter((n) => n.folderId === activeFolderId)
+      : notes;
 
   const sorted = [...filtered].sort((a, b) => {
     const aPinned = a.pinned ? 1 : 0;
@@ -51,30 +55,51 @@ export default function NoteList() {
 
   const handleContextMenu = (e: React.MouseEvent, noteId: string) => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, noteId });
+    setContextMenu({ x: e.clientX, y: e.clientY, noteId, view: 'main' });
   };
 
   const closeContextMenu = () => setContextMenu(null);
 
+  const handleMoveTo = (folderId: string | null) => {
+    if (contextMenu) {
+      setNoteFolder(contextMenu.noteId, folderId);
+    }
+    closeContextMenu();
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="px-3 py-1.5 flex items-center gap-1 border-b border-border">
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-          className="bg-transparent text-[10px] text-muted-foreground outline-none cursor-pointer"
-        >
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        {activeFolder && !searchQuery ? (
+          <span className="flex items-center gap-1 text-[10px] text-accent bg-accent-muted border border-accent/20 rounded px-1.5 py-0.5">
+            <FolderIcon size={10} />
+            <span className="max-w-[100px] truncate">{activeFolder.name}</span>
+            <button
+              onClick={() => setActiveFolder(null)}
+              className="text-accent/70 hover:text-accent"
+              title="Show all notes"
+            >
+              <X size={10} />
+            </button>
+          </span>
+        ) : (
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="bg-transparent text-[10px] text-muted-foreground outline-none cursor-pointer"
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        )}
         <span className="text-[10px] text-muted ml-auto">{filtered.length} notes</span>
       </div>
 
       <div className="flex-1 overflow-y-auto" onClick={closeContextMenu}>
         {sorted.length === 0 ? (
           <div className="p-4 text-center text-xs text-muted">
-            {searchQuery ? 'No matching notes' : 'No notes yet'}
+            {searchQuery ? 'No matching notes' : activeFolderId ? 'No notes in this folder' : 'No notes yet'}
           </div>
         ) : (
           sorted.map((note) => {
@@ -84,6 +109,11 @@ export default function NoteList() {
                 key={note.id}
                 onClick={() => selectNote(note.id)}
                 onContextMenu={(e) => handleContextMenu(e, note.id)}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/note-id', note.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
                 className={`group px-3 py-2 cursor-pointer transition-colors border-l-2 ${
                   note.id === selectedNoteId
                     ? 'bg-accent-muted border-accent'
@@ -146,18 +176,52 @@ export default function NoteList() {
             className="fixed z-50 bg-surface-tertiary border border-border rounded-md shadow-lg py-1 min-w-[140px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
-            <button
-              onClick={() => { togglePin(contextMenu.noteId); closeContextMenu(); }}
-              className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover transition-colors"
-            >
-              {notes.find((n) => n.id === contextMenu.noteId)?.pinned ? 'Unpin' : 'Pin'}
-            </button>
-            <button
-              onClick={() => { deleteNote(contextMenu.noteId); closeContextMenu(); }}
-              className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-surface-hover transition-colors"
-            >
-              Delete
-            </button>
+            {contextMenu.view === 'main' ? (
+              <>
+                <button
+                  onClick={() => { togglePin(contextMenu.noteId); closeContextMenu(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover transition-colors"
+                >
+                  {notes.find((n) => n.id === contextMenu.noteId)?.pinned ? 'Unpin' : 'Pin'}
+                </button>
+                <button
+                  onClick={() => setContextMenu({ ...contextMenu, view: 'move' })}
+                  className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover transition-colors flex items-center gap-1.5"
+                >
+                  <FolderInput size={12} />
+                  Move to folder
+                </button>
+                <button
+                  onClick={() => { deleteNote(contextMenu.noteId); closeContextMenu(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-surface-hover transition-colors"
+                >
+                  Delete
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="px-3 py-1 text-[10px] font-semibold text-muted uppercase tracking-wider">Move to</div>
+                <button
+                  onClick={() => handleMoveTo(null)}
+                  className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover transition-colors"
+                >
+                  No folder
+                </button>
+                {folders.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => handleMoveTo(f.id)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover transition-colors flex items-center gap-1.5"
+                  >
+                    <FolderIcon size={12} className="text-muted shrink-0" />
+                    <span className="truncate">{f.name}</span>
+                  </button>
+                ))}
+                {folders.length === 0 && (
+                  <div className="px-3 py-1.5 text-[10px] text-muted">No folders yet</div>
+                )}
+              </>
+            )}
           </div>
         </>
       )}

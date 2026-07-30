@@ -2,15 +2,15 @@
 
 import { useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
-import { Folder, Plus, Trash2 } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Trash2 } from 'lucide-react';
 
 export default function FolderTree() {
-  const { folders, notes, createFolder, deleteFolder, renameFolder, setNoteFolder } = useNoteStore();
+  const { folders, notes, createFolder, deleteFolder, renameFolder, setNoteFolder, activeFolderId, setActiveFolder } = useNoteStore();
   const [newFolderName, setNewFolderName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const handleCreate = () => {
     if (newFolderName.trim()) {
@@ -28,10 +28,13 @@ export default function FolderTree() {
     setEditName('');
   };
 
-  const handleDrop = (folderId: string | null) => {
-    if (draggedNoteId) {
-      setNoteFolder(draggedNoteId, folderId);
-      setDraggedNoteId(null);
+  const handleDrop = (e: React.DragEvent, folderId: string | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTargetId(null);
+    const noteId = e.dataTransfer.getData('text/note-id');
+    if (noteId) {
+      setNoteFolder(noteId, folderId);
     }
   };
 
@@ -50,6 +53,7 @@ export default function FolderTree() {
       <div className="space-y-0.5">
         {folders.map((f) => {
           const noteCount = notes.filter((n) => n.folderId === f.id).length;
+          const isActive = activeFolderId === f.id;
           if (editingId === f.id) {
             return (
               <div key={f.id} className="flex items-center gap-1 px-2 py-1">
@@ -68,20 +72,29 @@ export default function FolderTree() {
           return (
             <div
               key={f.id}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => handleDrop(f.id)}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors group"
+              onClick={() => setActiveFolder(isActive ? null : f.id)}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDropTargetId(f.id); }}
+              onDragLeave={() => setDropTargetId((prev) => (prev === f.id ? null : prev))}
+              onDrop={(e) => handleDrop(e, f.id)}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors group cursor-pointer ${
+                dropTargetId === f.id
+                  ? 'bg-accent-muted text-accent ring-1 ring-accent/40'
+                  : isActive
+                    ? 'bg-accent-muted text-accent'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-hover'
+              }`}
             >
-              <Folder size={14} className="shrink-0" />
+              {isActive ? <FolderOpen size={14} className="shrink-0" /> : <Folder size={14} className="shrink-0" />}
               <span
-                className="flex-1 text-left truncate cursor-pointer"
+                className="flex-1 text-left truncate"
                 onDoubleClick={() => { setEditingId(f.id); setEditName(f.name); }}
+                title={`${f.name} (double-click to rename)`}
               >
                 {f.name}
               </span>
               <span className="text-[10px] text-muted">{noteCount}</span>
               <button
-                onClick={() => deleteFolder(f.id)}
+                onClick={(e) => { e.stopPropagation(); deleteFolder(f.id); }}
                 className="opacity-0 group-hover:opacity-100 p-0.5 text-muted hover:text-red-400 transition-all shrink-0"
               >
                 <Trash2 size={10} />
