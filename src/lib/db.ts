@@ -1,10 +1,11 @@
 import type { PostgrestError } from '@supabase/supabase-js';
-import type { Note, Folder, Tag, Version } from '@/types';
+import type { Note, Folder, Tag, Version, ClipboardItem } from '@/types';
 import { getSupabase } from '@/lib/supabase';
 
 const NOTES_TABLE = 'notehub_notes';
 const FOLDERS_TABLE = 'notehub_folders';
 const TAGS_TABLE = 'notehub_tags';
+const CLIPBOARD_TABLE = 'notehub_clipboard';
 
 interface NoteRow {
   id: string;
@@ -221,4 +222,71 @@ export async function deleteTag(userId: string, id: string): Promise<void> {
     .eq('id', id);
 
   if (error) fail('Unable to delete tag from Supabase', error);
+}
+
+interface ClipboardRow {
+  id: string;
+  user_id: string;
+  content: string | null;
+  created_at: number | string | null;
+}
+
+function toClipboardItem(row: ClipboardRow): ClipboardItem {
+  return {
+    id: row.id,
+    content: row.content || '',
+    createdAt: toTimestamp(row.created_at),
+  };
+}
+
+export async function getClipboardItems(userId: string, since?: number): Promise<ClipboardItem[]> {
+  let q = getSupabase()
+    .from(CLIPBOARD_TABLE)
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (since !== undefined) {
+    q = q.gt('created_at', since);
+  }
+
+  const { data, error } = await q;
+  if (error) fail('Unable to load clipboard from Supabase', error);
+  return (data || []).map((row) => toClipboardItem(row as ClipboardRow));
+}
+
+export async function saveClipboardItem(userId: string, item: ClipboardItem): Promise<void> {
+  const { error } = await getSupabase()
+    .from(CLIPBOARD_TABLE)
+    .upsert(
+      {
+        id: item.id,
+        user_id: userId,
+        content: item.content,
+        created_at: item.createdAt,
+      },
+      { onConflict: 'id' }
+    );
+
+  if (error) fail('Unable to save clipboard to Supabase', error);
+}
+
+export async function deleteClipboardItem(userId: string, id: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from(CLIPBOARD_TABLE)
+    .delete()
+    .eq('user_id', userId)
+    .eq('id', id);
+
+  if (error) fail('Unable to delete clipboard item from Supabase', error);
+}
+
+export async function deleteOldClipboardItems(userId: string, before: number): Promise<void> {
+  const { error } = await getSupabase()
+    .from(CLIPBOARD_TABLE)
+    .delete()
+    .eq('user_id', userId)
+    .lt('created_at', before);
+
+  if (error) fail('Unable to cleanup clipboard in Supabase', error);
 }

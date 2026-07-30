@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
-import { Search, FilePlus, ClipboardPaste, PanelLeft, Sun, Moon, Download, Trash2, Pin } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Search, FilePlus, ClipboardPaste, PanelLeft, Sun, Moon, Download, Trash2, Pin, Settings, LogOut, User } from 'lucide-react';
 
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
+  onOpenSettings?: () => void;
 }
 
 interface CommandItem {
@@ -19,8 +21,9 @@ interface CommandItem {
   action: () => void;
 }
 
-export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
-  const { notes, createNote, selectNote, deleteNote, toggleSidebar, togglePin, theme, setTheme, selectedNoteId } = useNoteStore();
+export default function CommandPalette({ open, onClose, onOpenSettings }: CommandPaletteProps) {
+  const { notes, createNote, selectNote, deleteNote, toggleSidebar, togglePin, theme, setTheme, selectedNoteId, setClipboardMode } = useNoteStore();
+  const auth = useAuth();
   const [query, setQuery] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -88,6 +91,30 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           });
         },
       },
+      {
+        id: 'clipboard-mode', type: 'command',
+        label: 'Clipboard Mode',
+        icon: <ClipboardPaste size={16} />,
+        action: () => { setClipboardMode(true); handleClose(); },
+      },
+      {
+        id: 'open-settings', type: 'command',
+        label: 'Settings',
+        icon: <Settings size={16} />,
+        action: () => { onOpenSettings?.(); handleClose(); },
+      },
+      {
+        id: 'username', type: 'command',
+        label: auth.username || 'User',
+        icon: <User size={16} />,
+        action: () => {},
+      },
+      {
+        id: 'sign-out', type: 'command',
+        label: 'Sign out',
+        icon: <LogOut size={16} />,
+        action: () => { auth.signOut(); handleClose(); },
+      },
     ];
 
     const matchingNotes = notes
@@ -111,7 +138,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       ];
     }
     return cmdItems;
-  }, [query, notes, theme, selectedNoteId, createNote, deleteNote, togglePin, toggleSidebar, setTheme, selectNote, handleClose]);
+  }, [query, notes, theme, selectedNoteId, createNote, deleteNote, togglePin, toggleSidebar, setTheme, selectNote, handleClose, onOpenSettings, auth, setClipboardMode]);
 
   const safeSelectedIdx = Math.min(selectedIdx, allItems.length - 1);
 

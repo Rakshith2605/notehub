@@ -43,3 +43,9 @@ export interface NewPat {
   token: string;
   createdAt: number;
 }
+
+export interface ClipboardItem {
+  id: string;
+  content: string;
+  createdAt: number;
+}

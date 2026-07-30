@@ -10,13 +10,14 @@ import StatusBar from '@/components/StatusBar';
 import CommandPalette from '@/components/CommandPalette';
 import LoginScreen from '@/components/Auth/LoginScreen';
 import SettingsModal from '@/components/Settings/SettingsModal';
-import { LogOut, Moon, Plus, PanelLeftClose, PanelLeft, Search, Settings, Sun } from 'lucide-react';
+import ClipboardPane from '@/components/ClipboardPane';
+import { Plus, PanelLeftClose, PanelLeft, Search, Clipboard } from 'lucide-react';
 import { importFile } from '@/lib/export';
 
 export default function Home() {
   const auth = useAuth();
   const userId = auth.user?.id || null;
-  const { loadFromDB, clearWorkspace, isLoading, syncError, createNote, sidebarOpen, toggleSidebar, theme, setTheme, setSearchQuery, searchQuery } = useNoteStore();
+  const { loadFromDB, clearWorkspace, isLoading, syncError, createNote, sidebarOpen, toggleSidebar, setTheme, setSearchQuery, searchQuery, clipboardMode, toggleClipboardMode, loadClipboardItems, addClipboardItem } = useNoteStore();
   const { commandPaletteOpen, setCommandPaletteOpen } = useKeyboardShortcuts(Boolean(userId));
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -37,6 +38,48 @@ export default function Home() {
       if (initial === 'light') setTheme('light');
     }
   }, [setTheme]);
+
+  // Clipboard mode: 50ms polling for real-time sync
+  useEffect(() => {
+    if (!clipboardMode || !userId) return;
+
+    let isMounted = true;
+    let isPolling = false;
+
+    const poll = async () => {
+      if (!isMounted || isPolling) return;
+      isPolling = true;
+      await loadClipboardItems();
+      isPolling = false;
+    };
+
+    poll();
+    const interval = setInterval(poll, 50);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [clipboardMode, userId, loadClipboardItems]);
+
+  // Clipboard mode: global paste handler
+  useEffect(() => {
+    if (!clipboardMode) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (isInput) return;
+      const text = e.clipboardData?.getData('text');
+      if (text) {
+        e.preventDefault();
+        void addClipboardItem(text);
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [clipboardMode, addClipboardItem]);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
@@ -104,36 +147,23 @@ export default function Home() {
             ⌘K
           </button>
           <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-1.5 rounded-md text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
-            title="Toggle theme"
-          >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-1.5 rounded-md text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-            title="Settings"
-          >
-            <Settings size={14} />
-          </button>
-          <button
             onClick={() => createNote()}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors ml-1"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors"
           >
             <Plus size={14} />
             New
           </button>
-          <span className="hidden max-w-[180px] truncate px-2 text-[11px] text-muted md:inline">
-            {auth.username}
-          </span>
           <button
-            onClick={auth.signOut}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="Sign out"
+            onClick={() => toggleClipboardMode()}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              clipboardMode
+                ? 'bg-accent/20 text-accent border border-accent/30'
+                : 'text-muted hover:bg-surface-hover hover:text-foreground border border-transparent'
+            }`}
+            title="Clipboard mode"
           >
-            <LogOut size={14} />
-            <span className="hidden lg:inline">Sign out</span>
+            <Clipboard size={14} />
+            <span className="hidden sm:inline">Clipboard</span>
           </button>
         </div>
       </header>
@@ -147,12 +177,12 @@ export default function Home() {
       <div className="flex flex-1 overflow-hidden">
         {sidebarOpen && <Sidebar />}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <EditorPane />
-          <StatusBar />
+          {clipboardMode ? <ClipboardPane /> : <EditorPane />}
+          {!clipboardMode && <StatusBar />}
         </div>
       </div>
 
-      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
+      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onOpenSettings={() => setSettingsOpen(true)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );

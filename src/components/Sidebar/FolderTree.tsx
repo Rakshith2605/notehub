@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
-import { Folder, FileText, Plus, Trash2 } from 'lucide-react';
+import { Folder, Plus, Trash2 } from 'lucide-react';
 
 export default function FolderTree() {
   const { folders, notes, createFolder, deleteFolder, renameFolder, setNoteFolder } = useNoteStore();
@@ -11,8 +11,6 @@ export default function FolderTree() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
-
-  const allCount = notes.length;
 
   const handleCreate = () => {
     if (newFolderName.trim()) {
@@ -50,16 +48,6 @@ export default function FolderTree() {
       </div>
 
       <div className="space-y-0.5">
-        <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={() => handleDrop(null)}
-          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground"
-        >
-          <FileText size={14} />
-          <span className="flex-1 text-left">All Notes</span>
-          <span className="text-[10px] text-muted">{allCount}</span>
-        </div>
-
         {folders.map((f) => {
           const noteCount = notes.filter((n) => n.folderId === f.id).length;
           if (editingId === f.id) {

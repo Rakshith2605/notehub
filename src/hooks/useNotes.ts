@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
-import type { Note, Folder, Tag, Version } from '@/types';
+import type { Note, Folder, Tag, Version, ClipboardItem } from '@/types';
 import * as db from '@/lib/db';
 
 interface NoteStore {
@@ -15,6 +15,8 @@ interface NoteStore {
   sortBy: 'newest' | 'oldest' | 'modified' | 'alpha';
   sidebarOpen: boolean;
   theme: 'dark' | 'light';
+  clipboardMode: boolean;
+  clipboardItems: ClipboardItem[];
 
   loadFromDB: (userId: string) => Promise<void>;
   clearWorkspace: () => void;
@@ -35,6 +37,11 @@ interface NoteStore {
   setSortBy: (sort: 'newest' | 'oldest' | 'modified' | 'alpha') => void;
   toggleSidebar: () => void;
   setTheme: (theme: 'dark' | 'light') => void;
+  toggleClipboardMode: () => void;
+  setClipboardMode: (mode: boolean) => void;
+  addClipboardItem: (content: string) => Promise<void>;
+  loadClipboardItems: () => Promise<void>;
+  deleteClipboardItem: (id: string) => void;
 }
 
 function generateTitle(content: string): string {
@@ -69,6 +76,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   sortBy: 'newest',
   sidebarOpen: true,
   theme: 'dark',
+  clipboardMode: false,
+  clipboardItems: [],
 
   loadFromDB: async (userId) => {
     set({ activeUserId: userId, isLoading: true, syncError: null });
@@ -228,6 +237,59 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     if (typeof window !== 'undefined') {
       document.documentElement.classList.toggle('light', theme === 'light');
       localStorage.setItem('notehub-theme', theme);
+    }
+  },
+
+  toggleClipboardMode: () => set((s) => ({ clipboardMode: !s.clipboardMode })),
+
+  setClipboardMode: (mode) => set({ clipboardMode: mode }),
+
+  addClipboardItem: async (content) => {
+    const userId = get().activeUserId;
+    if (!userId) return;
+
+    const now = Date.now();
+    const item: ClipboardItem = {
+      id: nanoid(),
+      content,
+      createdAt: now,
+    };
+
+    set((s) => ({ clipboardItems: [item, ...s.clipboardItems] }));
+
+    try {
+      await db.saveClipboardItem(userId, item);
+      const cutoff = now - 24 * 60 * 60 * 1000;
+      await db.deleteOldClipboardItems(userId, cutoff);
+      set((s) => ({
+        clipboardItems: s.clipboardItems.filter((i) => i.createdAt >= cutoff),
+      }));
+    } catch (error) {
+      console.error('Failed to sync clipboard item:', error);
+    }
+  },
+
+  loadClipboardItems: async () => {
+    const userId = get().activeUserId;
+    if (!userId) return;
+
+    try {
+      const items = await db.getClipboardItems(userId);
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      const filtered = items.filter((i) => i.createdAt >= cutoff);
+      set({ clipboardItems: filtered });
+    } catch (error) {
+      console.error('Failed to load clipboard items:', error);
+    }
+  },
+
+  deleteClipboardItem: (id) => {
+    const userId = get().activeUserId;
+    set((s) => ({
+      clipboardItems: s.clipboardItems.filter((i) => i.id !== id),
+    }));
+    if (userId) {
+      void db.deleteClipboardItem(userId, id).catch(console.error);
     }
   },
 }));

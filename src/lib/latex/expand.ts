@@ -115,12 +115,13 @@ export function expandMacros(src: string, macros: Macro[]): string {
     const cmd = m[1];
     const macro = byName.get(cmd);
     if (!macro) {
-      out += src[i++];
+      // Unknown command - skip the entire command (backslash + name)
+      i += m[0].length;
       continue;
     }
     const parsed = parseBraceArgs(src, i + m[0].length, macro.argCount);
     if (!parsed) {
-      out += src[i++];
+      i += m[0].length;
       continue;
     }
     out += macro.render(parsed.args, (s) => expandMacros(s, macros));

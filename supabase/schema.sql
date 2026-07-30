@@ -43,6 +43,34 @@ create index if not exists notehub_tags_user_id_idx on public.notehub_tags(user_
 create index if not exists notehub_pats_user_id_idx on public.notehub_pats(user_id);
 create index if not exists notehub_pats_token_hash_idx on public.notehub_pats(token_hash);
 
+create table if not exists public.notehub_clipboard (
+  id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  content text not null default '',
+  created_at bigint not null
+);
+
+create index if not exists notehub_clipboard_user_id_idx on public.notehub_clipboard(user_id);
+create index if not exists notehub_clipboard_user_created_idx on public.notehub_clipboard(user_id, created_at desc);
+
+alter table public.notehub_clipboard enable row level security;
+
+drop policy if exists "Users can read their clipboard" on public.notehub_clipboard;
+drop policy if exists "Users can insert their clipboard" on public.notehub_clipboard;
+drop policy if exists "Users can delete their clipboard" on public.notehub_clipboard;
+
+create policy "Users can read their clipboard"
+  on public.notehub_clipboard for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their clipboard"
+  on public.notehub_clipboard for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their clipboard"
+  on public.notehub_clipboard for delete
+  using (auth.uid() = user_id);
+
 alter table public.notehub_notes enable row level security;
 alter table public.notehub_folders enable row level security;
 alter table public.notehub_tags enable row level security;
