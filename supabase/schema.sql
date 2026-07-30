@@ -57,6 +57,7 @@ alter table public.notehub_clipboard enable row level security;
 
 drop policy if exists "Users can read their clipboard" on public.notehub_clipboard;
 drop policy if exists "Users can insert their clipboard" on public.notehub_clipboard;
+drop policy if exists "Users can update their clipboard" on public.notehub_clipboard;
 drop policy if exists "Users can delete their clipboard" on public.notehub_clipboard;
 
 create policy "Users can read their clipboard"
@@ -65,6 +66,11 @@ create policy "Users can read their clipboard"
 
 create policy "Users can insert their clipboard"
   on public.notehub_clipboard for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their clipboard"
+  on public.notehub_clipboard for update
+  using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 create policy "Users can delete their clipboard"

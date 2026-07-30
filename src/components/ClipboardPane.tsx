@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
-import { Clipboard, ClipboardPaste, Trash2, Clock, Copy, Check } from 'lucide-react';
+import { Clipboard, ClipboardPaste, Trash2, Clock, Copy, Check, History } from 'lucide-react';
 
 function relativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
@@ -17,10 +17,26 @@ function relativeTime(timestamp: number): string {
   return `${days}d ago`;
 }
 
+async function copyText(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Fallback for environments where the async clipboard API is unavailable
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+}
+
 export default function ClipboardPane() {
-  const { clipboardItems, addClipboardItem, deleteClipboardItem } = useNoteStore();
+  const { clipboardItems, addClipboardItem, deleteClipboardItem, updateCurrentClipboard, setClipboardEditing } = useNoteStore();
   const [pasted, setPasted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const currentContent = clipboardItems[0]?.content ?? '';
@@ -42,20 +58,15 @@ export default function ClipboardPane() {
 
   const handleCopy = async () => {
     if (!currentContent) return;
-    try {
-      await navigator.clipboard.writeText(currentContent);
-    } catch {
-      // Fallback for environments where the async clipboard API is unavailable
-      const ta = textareaRef.current;
-      if (ta) {
-        ta.focus();
-        ta.select();
-        document.execCommand('copy');
-        ta.blur();
-      }
-    }
+    await copyText(currentContent);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleCopyItem = async (id: string, content: string) => {
+    await copyText(content);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1500);
   };
 
   return (
@@ -63,13 +74,30 @@ export default function ClipboardPane() {
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
         <Clipboard size={16} className="text-accent" />
         <span className="text-sm font-medium text-foreground">Clipboard Mode</span>
-        <span className="text-[10px] text-muted ml-auto flex items-center gap-1">
-          <Clock size={10} />
-          Syncing every second
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setShowHistory((v) => !v)}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+              showHistory
+                ? 'bg-accent-muted text-accent border-accent/30'
+                : 'text-muted border-border hover:text-foreground hover:border-muted'
+            }`}
+            title={showHistory ? 'Hide clipboard history' : 'Show clipboard history'}
+          >
+            <History size={12} />
+            History
+            <span className="text-[10px] px-1 rounded bg-surface-tertiary border border-border">
+              {clipboardItems.length}
+            </span>
+          </button>
+          <span className="text-[10px] text-muted flex items-center gap-1">
+            <Clock size={10} />
+            Syncing every second
+          </span>
+        </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
         <div className="w-full max-w-2xl">
           <div className="mb-4 text-center">
             <ClipboardPaste size={32} className="mx-auto text-muted mb-2" />
@@ -85,10 +113,12 @@ export default function ClipboardPane() {
             <textarea
               ref={textareaRef}
               value={currentContent}
+              onChange={(e) => updateCurrentClipboard(e.target.value)}
               onPaste={handleTextareaPaste}
-              placeholder="Paste here or press Ctrl+V / Cmd+V..."
+              onFocus={() => setClipboardEditing(true)}
+              onBlur={() => setClipboardEditing(false)}
+              placeholder="Paste or type here — synced across devices..."
               className="w-full h-40 bg-surface-secondary border border-border rounded-md p-3 pr-24 text-sm text-foreground placeholder-muted outline-none resize-none focus:border-accent focus:ring-1 focus:ring-accent"
-              readOnly
             />
             <button
               onClick={handleCopy}
@@ -105,36 +135,49 @@ export default function ClipboardPane() {
             </button>
           </div>
 
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-muted uppercase tracking-wider">Recent History</span>
-              <span className="text-[10px] text-muted">{clipboardItems.length} items</span>
-            </div>
-            {clipboardItems.length === 0 ? (
-              <div className="text-center py-6 text-xs text-muted">No clipboard history yet</div>
-            ) : (
-              <div className="space-y-1 max-h-64 overflow-y-auto">
-                {clipboardItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-2 px-2 py-1.5 rounded-md bg-surface-secondary border border-border group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-foreground truncate">{item.content.slice(0, 200)}</p>
-                      <p className="text-[10px] text-muted mt-0.5">{relativeTime(item.createdAt)}</p>
-                    </div>
-                    <button
-                      onClick={() => deleteClipboardItem(item.id)}
-                      className="p-0.5 rounded text-muted hover:text-red-400 hover:bg-surface-hover transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-                      title="Delete"
-                    >
-                      <Trash2 size={10} />
-                    </button>
-                  </div>
-                ))}
+          {showHistory && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-muted uppercase tracking-wider">Recent History</span>
+                <span className="text-[10px] text-muted">last {clipboardItems.length} copies</span>
               </div>
-            )}
-          </div>
+              {clipboardItems.length === 0 ? (
+                <div className="text-center py-6 text-xs text-muted">No clipboard history yet</div>
+              ) : (
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {clipboardItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-start gap-2 px-2 py-1.5 rounded-md bg-surface-secondary border border-border group"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-foreground truncate">{item.content.slice(0, 200)}</p>
+                        <p className="text-[10px] text-muted mt-0.5">{relativeTime(item.createdAt)}</p>
+                      </div>
+                      <button
+                        onClick={() => void handleCopyItem(item.id, item.content)}
+                        className={`p-1 rounded transition-colors shrink-0 ${
+                          copiedId === item.id
+                            ? 'text-accent'
+                            : 'text-muted hover:text-foreground hover:bg-surface-hover'
+                        }`}
+                        title="Copy this item"
+                      >
+                        {copiedId === item.id ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                      <button
+                        onClick={() => deleteClipboardItem(item.id)}
+                        className="p-1 rounded text-muted hover:text-red-400 hover:bg-surface-hover transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                        title="Delete"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

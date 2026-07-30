@@ -264,6 +264,16 @@ export async function saveClipboardItem(userId: string, item: ClipboardItem): Pr
   if (error) fail('Unable to save clipboard to Supabase', error);
 }
 
+export async function updateClipboardItem(userId: string, id: string, content: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from(CLIPBOARD_TABLE)
+    .update({ content })
+    .eq('user_id', userId)
+    .eq('id', id);
+
+  if (error) fail('Unable to update clipboard in Supabase', error);
+}
+
 export async function deleteClipboardItem(userId: string, id: string): Promise<void> {
   const { error } = await getSupabase()
     .from(CLIPBOARD_TABLE)

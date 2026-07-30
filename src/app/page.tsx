@@ -49,6 +49,8 @@ export default function Home() {
 
     const poll = async () => {
       if (!isMounted || isPolling) return;
+      // Don't clobber local edits while the user is typing in the clipboard area
+      if (useNoteStore.getState().clipboardEditing) return;
       isPolling = true;
       await loadClipboardItems();
       isPolling = false;

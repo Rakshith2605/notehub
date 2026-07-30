@@ -17,6 +17,7 @@ interface NoteStore {
   theme: 'dark' | 'light';
   clipboardMode: boolean;
   clipboardItems: ClipboardItem[];
+  clipboardEditing: boolean;
 
   loadFromDB: (userId: string) => Promise<void>;
   clearWorkspace: () => void;
@@ -42,9 +43,11 @@ interface NoteStore {
   addClipboardItem: (content: string) => Promise<void>;
   loadClipboardItems: () => Promise<void>;
   deleteClipboardItem: (id: string) => void;
+  setClipboardEditing: (editing: boolean) => void;
+  updateCurrentClipboard: (content: string) => void;
 }
 
-const MAX_CLIPBOARD_ITEMS = 50;
+const MAX_CLIPBOARD_ITEMS = 15;
 
 function generateTitle(content: string): string {
   const firstLine = content.split('\n')[0]?.trim() || '';
@@ -66,6 +69,21 @@ function workspaceSnapshot(userId: string | null, notes: Note[], folders: Folder
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let lastPersistedSnapshot = '';
 
+let clipboardSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingClipboardEdit: { id: string; content: string } | null = null;
+
+function flushPendingClipboardEdit(userId: string) {
+  if (clipboardSaveTimer) {
+    clearTimeout(clipboardSaveTimer);
+    clipboardSaveTimer = null;
+  }
+  const pending = pendingClipboardEdit;
+  pendingClipboardEdit = null;
+  if (pending) {
+    void db.updateClipboardItem(userId, pending.id, pending.content).catch(console.error);
+  }
+}
+
 export const useNoteStore = create<NoteStore>((set, get) => ({
   activeUserId: null,
   notes: [],
@@ -80,6 +98,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   theme: 'dark',
   clipboardMode: false,
   clipboardItems: [],
+  clipboardEditing: false,
 
   loadFromDB: async (userId) => {
     set({ activeUserId: userId, isLoading: true, syncError: null });
@@ -104,8 +123,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
   clearWorkspace: () => {
     if (persistTimer) clearTimeout(persistTimer);
+    if (clipboardSaveTimer) clearTimeout(clipboardSaveTimer);
+    pendingClipboardEdit = null;
     lastPersistedSnapshot = '';
-    set({ activeUserId: null, notes: [], folders: [], tags: [], selectedNoteId: null, isLoading: false, syncError: null });
+    set({ activeUserId: null, notes: [], folders: [], tags: [], selectedNoteId: null, isLoading: false, syncError: null, clipboardItems: [], clipboardEditing: false });
   },
 
   createNote: (content?: string) => {
@@ -276,7 +297,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     if (!userId) return;
 
     try {
-      const items = await db.getClipboardItems(userId);
+      const items = await db.getClipboardItems(userId, MAX_CLIPBOARD_ITEMS);
       set({ clipboardItems: items });
     } catch (error) {
       console.error('Failed to load clipboard items:', error);
@@ -291,6 +312,41 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     if (userId) {
       void db.deleteClipboardItem(userId, id).catch(console.error);
     }
+  },
+
+  setClipboardEditing: (editing) => {
+    set({ clipboardEditing: editing });
+    if (!editing) {
+      const userId = get().activeUserId;
+      if (userId) flushPendingClipboardEdit(userId);
+    }
+  },
+
+  updateCurrentClipboard: (content) => {
+    const userId = get().activeUserId;
+    if (!userId) return;
+
+    const current = get().clipboardItems[0];
+
+    // No clipboard yet: the first edit becomes the current clipboard.
+    if (!current) {
+      if (!content) return;
+      const item: ClipboardItem = { id: nanoid(), content, createdAt: Date.now() };
+      set((s) => ({ clipboardItems: [item, ...s.clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS) }));
+      void db.saveClipboardItem(userId, item).catch(console.error);
+      return;
+    }
+
+    if (current.content === content) return;
+
+    // Editing updates the current clipboard in place (no new history entries).
+    set((s) => ({
+      clipboardItems: s.clipboardItems.map((i) => (i.id === current.id ? { ...i, content } : i)),
+    }));
+
+    pendingClipboardEdit = { id: current.id, content };
+    if (clipboardSaveTimer) clearTimeout(clipboardSaveTimer);
+    clipboardSaveTimer = setTimeout(() => flushPendingClipboardEdit(userId), 600);
   },
 }));
 
