@@ -59,6 +59,38 @@ body {
   overflow: hidden;
 }
 
+.app-header {
+  min-height: calc(2.75rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+
+.version-sheet {
+  position: fixed;
+  top: calc(2.75rem + env(safe-area-inset-top));
+  right: 0;
+  bottom: 0;
+}
+
+@media (min-width: 768px) {
+  .version-sheet {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

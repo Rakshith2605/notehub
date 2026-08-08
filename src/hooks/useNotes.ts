@@ -39,6 +39,7 @@ interface NoteStore {
   setSearchQuery: (query: string) => void;
   setSortBy: (sort: 'newest' | 'oldest' | 'modified' | 'alpha') => void;
   toggleSidebar: () => void;
+  setSidebarOpen: (open: boolean) => void;
   setTheme: (theme: 'dark' | 'light') => void;
   toggleClipboardMode: () => void;
   setClipboardMode: (mode: boolean) => void;
@@ -260,6 +261,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   setSortBy: (sortBy) => set({ sortBy }),
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+
+  setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
 
   setTheme: (theme) => {
     set({ theme });

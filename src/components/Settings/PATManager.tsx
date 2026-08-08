@@ -107,14 +107,14 @@ export default function PATManager() {
             </code>
             <button
               onClick={() => setTokenVisible(!tokenVisible)}
-              className="p-1.5 rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors shrink-0"
+               className="min-w-8 min-h-8 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors shrink-0"
               title={tokenVisible ? 'Hide' : 'Show'}
             >
               {tokenVisible ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
             <button
               onClick={() => handleCopy(newToken!)}
-              className="p-1.5 rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors shrink-0"
+               className="min-w-8 min-h-8 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors shrink-0"
               title="Copy to clipboard"
             >
               {copied ? <span className="text-[10px] text-green-400">Copied</span> : <Copy size={14} />}
@@ -172,7 +172,7 @@ export default function PATManager() {
               </div>
               <button
                 onClick={() => handleRevoke(pat.id)}
-                className="p-1 rounded text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                 className="min-w-8 min-h-8 flex items-center justify-center rounded text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
                 title="Revoke token"
               >
                 <Trash2 size={12} />

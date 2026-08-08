@@ -9,6 +9,7 @@ import LanguageBadge from './LanguageBadge';
 import MarkdownPreview from './MarkdownPreview';
 import LatexPreview from './LatexPreview';
 import { mapLanguageToMonaco } from '@/lib/languages';
+import { History, X } from 'lucide-react';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react').then((mod) => mod.default), {
   ssr: false,
@@ -23,7 +24,7 @@ const JsonTreeView = dynamic(() => import('./JsonTreeView'), { ssr: false });
 const DiffView = dynamic(() => import('./DiffView'), { ssr: false });
 
 export default function EditorPane() {
-  const { notes, selectedNoteId, updateNote, theme } = useNoteStore();
+  const { notes, selectedNoteId, updateNote, createNote, theme } = useNoteStore();
   const note = notes.find((n) => n.id === selectedNoteId);
   const [wordWrap, setWordWrap] = useState(true);
   const [minimap, setMinimap] = useState(false);
@@ -74,19 +75,26 @@ export default function EditorPane() {
 
   if (!note) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-editor text-muted text-sm">
-        Select a note or create a new one
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-editor text-muted text-sm p-6 text-center">
+        <span>Select a note or create a new one</span>
+        <button type="button" onClick={() => createNote()} className="min-h-9 px-3 rounded-md bg-accent text-white text-xs font-medium hover:bg-accent-hover transition-colors">
+          Create a note
+        </button>
       </div>
     );
   }
 
-  if (diffMode && diffNote) {
+  if (diffMode) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         <DiffView
-          original={diffNote.content}
+          original={diffNote?.content ?? ''}
           modified={note.content}
           modifiedLang={note.language}
+          notes={notes}
+          currentNoteId={note.id}
+          comparisonNoteId={diffNoteId}
+          onComparisonChange={setDiffNoteId}
           onClose={() => { setDiffMode(false); setDiffNoteId(null); }}
         />
       </div>
@@ -97,17 +105,17 @@ export default function EditorPane() {
   const hasVersions = versions.length > 1;
 
   const openDiff = () => {
-    const other = notes.find((n) => n.id !== note.id);
-    if (other) {
-      setDiffNoteId(other.id);
+    if (notes.length > 1) {
+      const other = notes.find((n) => n.id !== note.id);
+      setDiffNoteId(other?.id ?? null);
       setDiffMode(true);
     }
   };
 
   return (
     <div className="flex-1 flex flex-row overflow-hidden">
-      <div className={`flex-1 flex flex-col overflow-hidden ${versionPanel ? 'w-[calc(100%-256px)]' : 'w-full'}`}>
-        <div className="flex items-center gap-2 bg-surface-secondary border-b border-border">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        <div className="flex items-center gap-2 bg-surface-secondary">
           <Toolbar
             note={note}
             wordWrap={wordWrap} setWordWrap={setWordWrap}
@@ -118,20 +126,24 @@ export default function EditorPane() {
           />
           <button
             onClick={() => setVersionPanel(!versionPanel)}
-            className={`mr-2 p-1 rounded text-[10px] transition-colors shrink-0 ${
+            className={`mr-1 min-h-7 flex items-center gap-1 px-1.5 rounded text-[10px] transition-colors shrink-0 ${
               versionPanel ? 'text-accent bg-accent-muted' : 'text-muted hover:text-foreground hover:bg-surface-hover'
             }`}
             title="Version history"
+            aria-label="Version history"
           >
-            v{hasVersions ? versions.length : 1}
+            <History size={14} />
+            <span className="hidden sm:inline">History</span>
+            <span>{hasVersions ? versions.length : 1}</span>
           </button>
           {notes.length > 1 && (
             <button
               onClick={openDiff}
-              className="mr-2 p-1 rounded text-[10px] text-muted hover:text-foreground hover:bg-surface-hover transition-colors shrink-0"
+               className="mr-1 min-h-7 flex items-center px-1.5 rounded text-[10px] text-muted hover:text-foreground hover:bg-surface-hover transition-colors shrink-0"
               title="Compare with another note"
             >
-              Diff
+               <span className="hidden sm:inline">Compare</span>
+               <span className="sm:hidden">Diff</span>
             </button>
           )}
           {detectedLang && (
@@ -147,7 +159,7 @@ export default function EditorPane() {
           <LatexPreview content={note.content} />
         ) : (
           <div className="flex-1 flex overflow-hidden">
-            <div className={`${splitView && (note.language === 'json' || note.language === 'yaml') ? 'w-1/2' : 'flex-1'} overflow-hidden`}>
+            <div className={`${splitView && (note.language === 'json' || note.language === 'yaml') ? 'w-1/2' : 'flex-1'} min-w-0 overflow-hidden`}>
               <MonacoEditor
                 key={`${note.id}-${note.language}`}
                 language={mapLanguageToMonaco(note.language)}
@@ -179,9 +191,12 @@ export default function EditorPane() {
       </div>
 
       {versionPanel && (
-        <div className="w-64 border-l border-border bg-sidebar overflow-y-auto shrink-0">
-          <div className="p-3 border-b border-border">
+        <>
+          <button type="button" aria-label="Close version history" className="fixed inset-0 z-20 bg-black/40 md:hidden" onClick={() => setVersionPanel(false)} />
+          <div className="version-sheet z-30 w-64 border-l border-border bg-sidebar overflow-y-auto shrink-0">
+          <div className="flex items-center justify-between p-3 border-b border-border">
             <h3 className="text-[10px] font-semibold text-muted uppercase tracking-wider">Version History</h3>
+            <button type="button" className="min-w-7 min-h-7 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-surface-hover md:hidden" onClick={() => setVersionPanel(false)} aria-label="Close version history"><X size={14} /></button>
           </div>
           {versions.length === 0 ? (
             <div className="p-4 text-xs text-muted text-center">No versions yet</div>
@@ -222,7 +237,8 @@ export default function EditorPane() {
               })}
             </div>
           )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

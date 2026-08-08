@@ -36,6 +36,7 @@ export default function ClipboardPane() {
   const [pasted, setPasted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [deletedMessage, setDeletedMessage] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -69,6 +70,12 @@ export default function ClipboardPane() {
     setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1500);
   };
 
+  const handleDeleteItem = (id: string) => {
+    deleteClipboardItem(id);
+    setDeletedMessage('Clipboard item deleted');
+    setTimeout(() => setDeletedMessage(''), 1800);
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
@@ -77,7 +84,7 @@ export default function ClipboardPane() {
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setShowHistory((v) => !v)}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+            className={`min-h-7 flex items-center gap-1.5 px-2 rounded-md text-[11px] font-medium border transition-colors ${
               showHistory
                 ? 'bg-accent-muted text-accent border-accent/30'
                 : 'text-muted border-border hover:text-foreground hover:border-muted'
@@ -107,6 +114,7 @@ export default function ClipboardPane() {
             {pasted && (
               <p className="text-xs text-accent mt-1 animate-pulse">Saved to clipboard history!</p>
             )}
+            <p className="sr-only" role="status" aria-live="polite">{deletedMessage}</p>
           </div>
 
           <div className="relative">
@@ -156,7 +164,7 @@ export default function ClipboardPane() {
                       </div>
                       <button
                         onClick={() => void handleCopyItem(item.id, item.content)}
-                        className={`p-1 rounded transition-colors shrink-0 ${
+                        className={`min-w-7 min-h-7 flex items-center justify-center rounded transition-colors shrink-0 ${
                           copiedId === item.id
                             ? 'text-accent'
                             : 'text-muted hover:text-foreground hover:bg-surface-hover'
@@ -166,8 +174,9 @@ export default function ClipboardPane() {
                         {copiedId === item.id ? <Check size={12} /> : <Copy size={12} />}
                       </button>
                       <button
-                        onClick={() => deleteClipboardItem(item.id)}
-                        className="p-1 rounded text-muted hover:text-red-400 hover:bg-surface-hover transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                        onClick={() => handleDeleteItem(item.id)}
+                        aria-label="Delete clipboard item"
+                        className="min-w-7 min-h-7 flex items-center justify-center rounded text-muted hover:text-red-400 hover:bg-surface-hover transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 shrink-0"
                         title="Delete"
                       >
                         <Trash2 size={12} />

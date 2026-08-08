@@ -28,9 +28,11 @@ export default function CommandPalette({ open, onClose, onOpenSettings }: Comman
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (open) {
+      previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
       setQuery('');
       setSelectedIdx(0);
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -41,6 +43,34 @@ export default function CommandPalette({ open, onClose, onOpenSettings }: Comman
     setQuery('');
     onClose();
   }, [onClose]);
+
+  useEffect(() => {
+    if (!open) {
+      previouslyFocusedRef.current?.focus();
+      return;
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleClose();
+      }
+      if (event.key === 'Tab' && containerRef.current) {
+        const focusable = containerRef.current.querySelectorAll<HTMLElement>('input, button, [tabindex]:not([tabindex="-1"])');
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [open, handleClose]);
 
   const allItems = useMemo((): CommandItem[] => {
     const cmdItems: CommandItem[] = [
@@ -172,12 +202,15 @@ export default function CommandPalette({ open, onClose, onOpenSettings }: Comman
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" onClick={handleClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-3 pt-[10vh] sm:pt-[15vh]" onClick={handleClose} role="presentation">
       <div className="fixed inset-0 bg-black/60" />
       <div
         ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-surface-secondary border border-border rounded-lg shadow-2xl overflow-hidden"
+        className="relative w-full max-w-lg bg-surface-secondary border border-border rounded-lg shadow-2xl overflow-hidden max-sm:mt-auto max-sm:rounded-b-none"
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
           <Search size={16} className="text-muted" />

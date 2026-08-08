@@ -85,7 +85,7 @@ export default function MCPConfig() {
       <div className="relative">
         <button
           onClick={handleCopy}
-          className="absolute top-2 right-2 flex items-center gap-1 rounded bg-surface-tertiary px-2 py-1 text-[10px] text-muted hover:text-foreground border border-border transition-colors"
+           className="absolute top-2 right-2 min-h-8 flex items-center gap-1 rounded bg-surface-tertiary px-2 text-[10px] text-muted hover:text-foreground border border-border transition-colors"
         >
           {copied ? <Check size={10} /> : <Copy size={10} />}
           {copied ? 'Copied' : 'Copy'}

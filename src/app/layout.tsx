@@ -20,8 +20,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${geistSans.variable} antialiased`}>
+      <html lang="en" suppressHydrationWarning>
+        <head>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(() => { try { const saved = localStorage.getItem('notehub-theme'); const dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches; document.documentElement.classList.toggle('light', !dark); } catch (_) {} })();`,
+            }}
+          />
+        </head>
+        <body className={`${geistSans.variable} antialiased`}>
         {children}
       </body>
     </html>

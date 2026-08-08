@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
 import { Pin, PinOff, Trash2, MoreHorizontal, FolderInput, Folder as FolderIcon, X } from 'lucide-react';
 import { getLanguageColor } from '@/lib/languages';
@@ -25,9 +25,24 @@ const SORT_OPTIONS = [
   { label: 'A-Z', value: 'alpha' as const },
 ];
 
-export default function NoteList() {
+interface NoteListProps {
+  onSelectNote?: () => void;
+}
+
+export default function NoteList({ onSelectNote }: NoteListProps) {
   const { notes, folders, selectedNoteId, selectNote, togglePin, deleteNote, searchQuery, sortBy, setSortBy, tags, activeFolderId, setActiveFolder, setNoteFolder } = useNoteStore();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; noteId: string; view: 'main' | 'move' } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeContextMenu();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    contextMenuRef.current?.focus();
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [contextMenu]);
 
   const tagMap = new Map(tags.map((t) => [t.id, t]));
   const searchLower = searchQuery.toLowerCase();
@@ -55,7 +70,7 @@ export default function NoteList() {
 
   const handleContextMenu = (e: React.MouseEvent, noteId: string) => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, noteId, view: 'main' });
+    setContextMenu({ x: Math.max(8, Math.min(e.clientX, window.innerWidth - 188)), y: Math.max(8, Math.min(e.clientY, window.innerHeight - 220)), noteId, view: 'main' });
   };
 
   const closeContextMenu = () => setContextMenu(null);
@@ -76,7 +91,7 @@ export default function NoteList() {
             <span className="max-w-[100px] truncate">{activeFolder.name}</span>
             <button
               onClick={() => setActiveFolder(null)}
-              className="text-accent/70 hover:text-accent"
+              className="min-w-7 min-h-7 flex items-center justify-center text-accent/70 hover:text-accent"
               title="Show all notes"
             >
               <X size={10} />
@@ -107,8 +122,18 @@ export default function NoteList() {
             return (
               <div
                 key={note.id}
-                onClick={() => selectNote(note.id)}
+                onClick={() => { selectNote(note.id); onSelectNote?.(); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    selectNote(note.id);
+                    onSelectNote?.();
+                  }
+                }}
                 onContextMenu={(e) => handleContextMenu(e, note.id)}
+                role="button"
+                tabIndex={0}
+                aria-current={note.id === selectedNoteId ? 'true' : undefined}
                 draggable
                 onDragStart={(e) => {
                   e.dataTransfer.setData('text/note-id', note.id);
@@ -151,14 +176,14 @@ export default function NoteList() {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <button onClick={(e) => { e.stopPropagation(); togglePin(note.id); }} className="p-0.5 rounded hover:bg-surface-tertiary text-muted hover:text-foreground transition-colors">
+                  <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
+                    <button aria-label={note.pinned ? 'Unpin note' : 'Pin note'} onClick={(e) => { e.stopPropagation(); togglePin(note.id); }} className="min-w-7 min-h-7 flex items-center justify-center rounded hover:bg-surface-tertiary text-muted hover:text-foreground transition-colors">
                       {note.pinned ? <PinOff size={12} /> : <Pin size={12} />}
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} className="p-0.5 rounded hover:bg-surface-tertiary text-muted hover:text-red-400 transition-colors">
+                    <button aria-label="Delete note" onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} className="min-w-7 min-h-7 flex items-center justify-center rounded hover:bg-surface-tertiary text-muted hover:text-red-400 transition-colors">
                       <Trash2 size={12} />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); handleContextMenu(e, note.id); }} className="p-0.5 rounded hover:bg-surface-tertiary text-muted hover:text-foreground transition-colors">
+                    <button aria-label="More note actions" onClick={(e) => { e.stopPropagation(); handleContextMenu(e, note.id); }} className="min-w-7 min-h-7 flex items-center justify-center rounded hover:bg-surface-tertiary text-muted hover:text-foreground transition-colors">
                       <MoreHorizontal size={12} />
                     </button>
                   </div>
@@ -173,6 +198,10 @@ export default function NoteList() {
         <>
           <div className="fixed inset-0 z-40" onClick={closeContextMenu} />
           <div
+            ref={contextMenuRef}
+            role="menu"
+            tabIndex={-1}
+            aria-label="Note actions"
             className="fixed z-50 bg-surface-tertiary border border-border rounded-md shadow-lg py-1 min-w-[140px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
@@ -180,20 +209,20 @@ export default function NoteList() {
               <>
                 <button
                   onClick={() => { togglePin(contextMenu.noteId); closeContextMenu(); }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover transition-colors"
+                  role="menuitem" className="w-full text-left px-3 py-2 text-xs text-foreground hover:bg-surface-hover transition-colors"
                 >
                   {notes.find((n) => n.id === contextMenu.noteId)?.pinned ? 'Unpin' : 'Pin'}
                 </button>
                 <button
                   onClick={() => setContextMenu({ ...contextMenu, view: 'move' })}
-                  className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover transition-colors flex items-center gap-1.5"
+                  role="menuitem" className="w-full text-left px-3 py-2 text-xs text-foreground hover:bg-surface-hover transition-colors flex items-center gap-1.5"
                 >
                   <FolderInput size={12} />
                   Move to folder
                 </button>
                 <button
                   onClick={() => { deleteNote(contextMenu.noteId); closeContextMenu(); }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-surface-hover transition-colors"
+                  role="menuitem" className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-surface-hover transition-colors"
                 >
                   Delete
                 </button>
@@ -203,7 +232,7 @@ export default function NoteList() {
                 <div className="px-3 py-1 text-[10px] font-semibold text-muted uppercase tracking-wider">Move to</div>
                 <button
                   onClick={() => handleMoveTo(null)}
-                  className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover transition-colors"
+                  role="menuitem" className="w-full text-left px-3 py-2 text-xs text-foreground hover:bg-surface-hover transition-colors"
                 >
                   No folder
                 </button>
@@ -211,7 +240,7 @@ export default function NoteList() {
                   <button
                     key={f.id}
                     onClick={() => handleMoveTo(f.id)}
-                    className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-surface-hover transition-colors flex items-center gap-1.5"
+                    role="menuitem" className="w-full text-left px-3 py-2 text-xs text-foreground hover:bg-surface-hover transition-colors flex items-center gap-1.5"
                   >
                     <FolderIcon size={12} className="text-muted shrink-0" />
                     <span className="truncate">{f.name}</span>

@@ -26,8 +26,10 @@ export default function TagManager() {
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[10px] font-semibold text-muted uppercase tracking-wider">Tags</span>
         <button
+          type="button"
+          aria-label="Create tag"
           onClick={() => { setIsCreating(true); setTagName(''); }}
-          className="p-0.5 rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+          className="min-w-7 min-h-7 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
         >
           <Plus size={12} />
         </button>
@@ -42,8 +44,10 @@ export default function TagManager() {
             />
             <span className="text-[11px] text-muted-foreground flex-1 truncate">{tag.name}</span>
             <button
+              type="button"
+              aria-label={`Delete ${tag.name} tag`}
               onClick={() => deleteTag(tag.id)}
-              className="opacity-0 group-hover:opacity-100 p-0.5 text-muted hover:text-red-400 transition-all"
+              className="opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 min-w-7 min-h-7 flex items-center justify-center text-muted hover:text-red-400 transition-all"
             >
               <X size={10} />
             </button>
@@ -65,7 +69,7 @@ export default function TagManager() {
                 <button
                   key={c.value}
                   onClick={() => setTagColor(c.value)}
-                  className={`w-4 h-4 rounded-full transition-transform ${tagColor === c.value ? 'ring-1 ring-foreground scale-110' : 'hover:scale-110'}`}
+                  className={`w-7 h-7 rounded-full transition-transform ${tagColor === c.value ? 'ring-1 ring-foreground scale-110' : 'hover:scale-110'}`}
                   style={{ backgroundColor: c.hex }}
                   title={c.label}
                 />

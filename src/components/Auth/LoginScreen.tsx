@@ -29,7 +29,7 @@ export default function LoginScreen({ authError, authMessage, onSignIn, onSignUp
   };
 
   return (
-    <main className="min-h-screen w-screen bg-background flex items-center justify-center px-4">
+    <main className="min-h-dvh w-screen bg-background flex items-center justify-center px-4">
       <section className="w-full max-w-sm rounded-lg border border-border bg-surface p-5 shadow-2xl shadow-black/20">
         <div className="mb-5">
           <h1 className="text-lg font-semibold text-foreground">Note Hub</h1>

@@ -13,13 +13,24 @@ import SettingsModal from '@/components/Settings/SettingsModal';
 import ClipboardPane from '@/components/ClipboardPane';
 import { Plus, PanelLeftClose, PanelLeft, Search, Clipboard } from 'lucide-react';
 import { importFile } from '@/lib/export';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 export default function Home() {
   const auth = useAuth();
   const userId = auth.user?.id || null;
-  const { loadFromDB, clearWorkspace, isLoading, syncError, createNote, sidebarOpen, toggleSidebar, setTheme, setSearchQuery, searchQuery, clipboardMode, toggleClipboardMode, loadClipboardItems, addClipboardItem } = useNoteStore();
+  const { loadFromDB, clearWorkspace, isLoading, syncError, createNote, sidebarOpen, toggleSidebar, setSidebarOpen, setTheme, setSearchQuery, searchQuery, clipboardMode, toggleClipboardMode, loadClipboardItems, addClipboardItem } = useNoteStore();
   const { commandPaletteOpen, setCommandPaletteOpen } = useKeyboardShortcuts(Boolean(userId));
+  const isMobile = useMediaQuery('(max-width: 767px)');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [syncErrorDismissed, setSyncErrorDismissed] = useState(false);
+
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile, setSidebarOpen]);
+
+  useEffect(() => {
+    setSyncErrorDismissed(false);
+  }, [syncError]);
 
   useEffect(() => {
     if (auth.isLoading) return;
@@ -36,7 +47,7 @@ export default function Home() {
       const saved = localStorage.getItem('notehub-theme') as 'dark' | 'light' | null;
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const initial = saved || (prefersDark ? 'dark' : 'light');
-      if (initial === 'light') setTheme('light');
+      setTheme(initial);
     }
   }, [setTheme]);
 
@@ -99,7 +110,7 @@ export default function Home() {
 
   if (auth.isLoading || (userId && isLoading)) {
     return (
-      <div className="h-screen w-screen bg-background flex items-center justify-center">
+      <div className="h-dvh w-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted text-sm">Loading Note Hub...</div>
       </div>
     );
@@ -118,20 +129,20 @@ export default function Home() {
 
   return (
     <div
-      className="h-screen w-screen flex flex-col bg-background"
+      className="h-dvh w-screen flex flex-col bg-background"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
-      <header className="h-11 flex items-center gap-2 px-3 border-b border-border bg-header shrink-0">
+      <header className="app-header flex items-center gap-2 px-3 border-b border-border bg-header shrink-0">
         <button
           onClick={toggleSidebar}
-          className="p-1.5 rounded-md text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+          className="min-w-8 min-h-8 flex items-center justify-center rounded-md text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
           title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
         >
           {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
         </button>
-        <h1 className="text-sm font-semibold text-foreground mr-4 whitespace-nowrap">Note Hub</h1>
-        <div className="flex-1 flex items-center gap-2 max-w-md">
+        <h1 className="hidden sm:block text-sm font-semibold text-foreground mr-2 whitespace-nowrap">Note Hub</h1>
+        <div className="flex-1 min-w-0 flex items-center gap-2 max-w-md">
           <Search size={14} className="text-muted shrink-0" />
           <input
             type="text"
@@ -145,20 +156,23 @@ export default function Home() {
         <div className="flex items-center gap-1">
           <button
             onClick={() => setCommandPaletteOpen(true)}
-            className="px-2 py-1 rounded text-[10px] text-muted bg-surface-tertiary border border-border hover:text-foreground hover:border-muted transition-colors"
+            className="min-w-8 min-h-8 flex items-center justify-center px-2 rounded text-[10px] text-muted bg-surface-tertiary border border-border hover:text-foreground hover:border-muted transition-colors"
+            aria-label="Open command palette"
           >
-            ⌘K
+            <span className="hidden sm:inline">⌘K</span>
+            <Search size={15} className="sm:hidden" aria-hidden="true" />
           </button>
           <button
             onClick={() => createNote()}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors"
+            className="min-h-8 flex items-center justify-center gap-1.5 px-2.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors"
+            aria-label="Create new note"
           >
             <Plus size={14} />
-            New
+            <span className="hidden sm:inline">New</span>
           </button>
           <button
             onClick={() => toggleClipboardMode()}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`min-h-8 flex items-center justify-center gap-1.5 px-2.5 rounded-md text-xs font-medium transition-colors ${
               clipboardMode
                 ? 'bg-accent/20 text-accent border border-accent/30'
                 : 'text-muted hover:bg-surface-hover hover:text-foreground border border-transparent'
@@ -171,15 +185,16 @@ export default function Home() {
         </div>
       </header>
 
-      {syncError && (
-        <div className="border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300" role="alert">
+      {syncError && !syncErrorDismissed && (
+        <div className="flex items-center gap-2 border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300" role="alert">
           {syncError}
+          <button type="button" onClick={() => setSyncErrorDismissed(true)} className="ml-auto min-w-7 min-h-7 flex items-center justify-center rounded text-red-200 hover:bg-red-500/20" aria-label="Dismiss sync error">&times;</button>
         </div>
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {sidebarOpen && <Sidebar />}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <Sidebar open={sidebarOpen} mobile={isMobile} onSelectNote={() => { if (isMobile) setSidebarOpen(false); }} />
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {clipboardMode ? <ClipboardPane /> : <EditorPane />}
           {!clipboardMode && <StatusBar />}
         </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronRight, ChevronDown, Copy } from 'lucide-react';
+import { yamlToJson } from '@/lib/formatters';
 
 interface TreeNode {
   key: string;
@@ -52,14 +53,12 @@ interface JsonTreeViewProps {
 export default function JsonTreeView({ content, language }: JsonTreeViewProps) {
   let parsed: unknown;
 
-  if (language === 'json') {
+  if (language === 'json' || language === 'yaml') {
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(language === 'yaml' ? yamlToJson(content) : content);
     } catch {
-      return <div className="p-4 text-xs text-red-400">Invalid JSON</div>;
+      return <div className="p-4 text-xs text-red-400">Invalid {language.toUpperCase()}</div>;
     }
-  } else {
-    return null;
   }
 
   return (
@@ -97,7 +96,7 @@ function TreeNodeRow({ node, level }: { node: TreeNode; level: number }) {
         {isExpandable && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="p-0.5 text-muted hover:text-foreground"
+            className="min-w-7 min-h-7 flex items-center justify-center text-muted hover:text-foreground"
           >
             {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
           </button>
@@ -125,7 +124,8 @@ function TreeNodeRow({ node, level }: { node: TreeNode; level: number }) {
 
         <button
           onClick={copyValue}
-          className="opacity-0 group-hover:opacity-100 p-0.5 text-muted hover:text-foreground ml-auto"
+          aria-label={`Copy ${node.key} value`}
+          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 min-w-7 min-h-7 flex items-center justify-center text-muted hover:text-foreground ml-auto"
         >
           <Copy size={10} />
         </button>

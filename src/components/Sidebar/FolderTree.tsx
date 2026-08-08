@@ -43,8 +43,10 @@ export default function FolderTree() {
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[10px] font-semibold text-muted uppercase tracking-wider">Folders</span>
         <button
+          type="button"
+          aria-label="Create folder"
           onClick={() => { setIsCreating(true); setNewFolderName(''); }}
-          className="p-0.5 rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+          className="min-w-7 min-h-7 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
         >
           <Plus size={12} />
         </button>
@@ -73,6 +75,20 @@ export default function FolderTree() {
             <div
               key={f.id}
               onClick={() => setActiveFolder(isActive ? null : f.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveFolder(isActive ? null : f.id);
+                }
+                if (e.key === 'F2') {
+                  e.preventDefault();
+                  setEditingId(f.id);
+                  setEditName(f.name);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isActive}
               onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDropTargetId(f.id); }}
               onDragLeave={() => setDropTargetId((prev) => (prev === f.id ? null : prev))}
               onDrop={(e) => handleDrop(e, f.id)}
@@ -94,8 +110,10 @@ export default function FolderTree() {
               </span>
               <span className="text-[10px] text-muted">{noteCount}</span>
               <button
+                type="button"
+                aria-label={`Delete ${f.name} folder`}
                 onClick={(e) => { e.stopPropagation(); deleteFolder(f.id); }}
-                className="opacity-0 group-hover:opacity-100 p-0.5 text-muted hover:text-red-400 transition-all shrink-0"
+                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 min-w-7 min-h-7 flex items-center justify-center text-muted hover:text-red-400 transition-all shrink-0"
               >
                 <Trash2 size={10} />
               </button>

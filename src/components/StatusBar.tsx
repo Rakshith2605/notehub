@@ -8,7 +8,7 @@ export default function StatusBar() {
 
   if (!note) {
     return (
-      <div className="h-7 flex items-center px-3 border-t border-border bg-status text-[11px] text-muted shrink-0">
+      <div className="min-h-[calc(1.75rem+env(safe-area-inset-bottom))] flex items-center px-3 pb-[env(safe-area-inset-bottom)] border-t border-border bg-status text-[11px] text-muted shrink-0">
         <span>No note selected</span>
       </div>
     );
@@ -20,20 +20,20 @@ export default function StatusBar() {
   const versionCount = note.versions?.length || 0;
 
   return (
-    <div className="h-7 flex items-center gap-4 px-3 border-t border-border bg-status text-[11px] text-muted-foreground shrink-0">
+      <div className="min-h-[calc(1.75rem+env(safe-area-inset-bottom))] flex items-center flex-wrap gap-x-3 gap-y-0.5 px-3 py-1 pb-[env(safe-area-inset-bottom)] border-t border-border bg-status text-[11px] text-muted-foreground shrink-0 overflow-hidden">
       <span>chars: {charCount.toLocaleString()}</span>
       <span>lines: {lineCount}</span>
       <span className="px-1.5 py-0.5 rounded bg-surface-tertiary text-[10px] font-medium uppercase">
         {note.language}
       </span>
       {versionCount > 1 && (
-        <span className="text-muted">versions: {versionCount}</span>
+       <span className="hidden sm:inline text-muted">versions: {versionCount}</span>
       )}
       {note.tags.length > 0 && (
-        <span className="text-muted">tags: {note.tags.length}</span>
+         <span className="hidden sm:inline text-muted">tags: {note.tags.length}</span>
       )}
       {folderName && (
-        <span className="text-muted">{folderName}</span>
+         <span className="hidden sm:inline text-muted truncate max-w-40">{folderName}</span>
       )}
       <div className="flex-1" />
     </div>
