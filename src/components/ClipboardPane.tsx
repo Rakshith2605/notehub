@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
-import { Clipboard, ClipboardPaste, Trash2, Clock, Copy, Check, History } from 'lucide-react';
+import { Clipboard, ClipboardPaste, Trash2, Copy, Check, History } from 'lucide-react';
 
 function relativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
@@ -97,10 +97,6 @@ export default function ClipboardPane() {
               {clipboardItems.length}
             </span>
           </button>
-          <span className="text-[10px] text-muted flex items-center gap-1">
-            <Clock size={10} />
-            Syncing every second
-          </span>
         </div>
       </div>
 

@@ -151,7 +151,7 @@ export default function Toolbar(props: ToolbarProps) {
 
       <button
         onClick={() => setMinimap(!minimap)}
-        className={`min-w-7 min-h-7 flex items-center justify-center rounded transition-colors ${minimap ? 'text-accent bg-accent-muted' : 'text-muted hover:text-foreground hover:bg-surface-hover'}`}
+        className={`hidden sm:flex min-w-7 min-h-7 items-center justify-center rounded transition-colors ${minimap ? 'text-accent bg-accent-muted' : 'text-muted hover:text-foreground hover:bg-surface-hover'}`}
         title="Toggle minimap"
       >
         <Map size={14} />
@@ -160,7 +160,7 @@ export default function Toolbar(props: ToolbarProps) {
       <div className="flex-1" />
 
       <div className="flex items-center gap-1">
-        <div className="relative inline-flex items-center">
+        <div className="relative hidden sm:inline-flex items-center">
           <Download size={12} className="absolute left-2 text-muted pointer-events-none" aria-hidden="true" />
           <select
             value=""
@@ -188,21 +188,23 @@ export default function Toolbar(props: ToolbarProps) {
             {validationMessage.text}
           </span>
         )}
-        <button
-          onClick={() => setFontSize(Math.max(10, fontSize - 2))}
-          className="min-w-7 min-h-7 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-          title="Decrease font size"
-        >
-          <Minus size={12} />
-        </button>
-        <span className="text-[11px] text-muted-foreground min-w-[28px] text-center">{fontSize}px</span>
-        <button
-          onClick={() => setFontSize(Math.min(24, fontSize + 2))}
-          className="min-w-7 min-h-7 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-          title="Increase font size"
-        >
-          <Plus size={12} />
-        </button>
+        <div className="hidden sm:flex items-center gap-1">
+          <button
+            onClick={() => setFontSize(Math.max(10, fontSize - 2))}
+            className="min-w-7 min-h-7 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="Decrease font size"
+          >
+            <Minus size={12} />
+          </button>
+          <span className="text-[11px] text-muted-foreground min-w-[28px] text-center">{fontSize}px</span>
+          <button
+            onClick={() => setFontSize(Math.min(24, fontSize + 2))}
+            className="min-w-7 min-h-7 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            title="Increase font size"
+          >
+            <Plus size={12} />
+          </button>
+        </div>
       </div>
     </div>
   );

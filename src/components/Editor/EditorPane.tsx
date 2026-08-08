@@ -158,8 +158,8 @@ export default function EditorPane() {
         ) : previewMode && note.language === 'latex' ? (
           <LatexPreview content={note.content} />
         ) : (
-          <div className="flex-1 flex overflow-hidden">
-            <div className={`${splitView && (note.language === 'json' || note.language === 'yaml') ? 'w-1/2' : 'flex-1'} min-w-0 overflow-hidden`}>
+          <div className={`flex-1 min-h-0 flex overflow-hidden ${splitView && (note.language === 'json' || note.language === 'yaml') ? 'flex-col sm:flex-row' : ''}`}>
+            <div className={`${splitView && (note.language === 'json' || note.language === 'yaml') ? 'h-1/2 w-full sm:h-full sm:w-1/2' : 'flex-1'} min-h-0 min-w-0 overflow-hidden`}>
               <MonacoEditor
                 key={`${note.id}-${note.language}`}
                 language={mapLanguageToMonaco(note.language)}
@@ -182,7 +182,7 @@ export default function EditorPane() {
               />
             </div>
             {splitView && (note.language === 'json' || note.language === 'yaml') && (
-              <div className="w-1/2 border-l border-border overflow-hidden bg-surface">
+              <div className="h-1/2 w-full border-t border-border overflow-hidden bg-surface sm:h-full sm:w-1/2 sm:border-l sm:border-t-0">
                 <JsonTreeView content={note.content} language={note.language} />
               </div>
             )}

@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNoteStore } from '@/hooks/useNotes';
-import { Pin, PinOff, Trash2, MoreHorizontal, FolderInput, Folder as FolderIcon, X } from 'lucide-react';
+import { Pin, PinOff, Trash2, FolderInput, Folder as FolderIcon, X } from 'lucide-react';
 import { getLanguageColor } from '@/lib/languages';
-import { getTagColor } from '@/lib/tagColors';
 
 function relativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
@@ -30,7 +29,7 @@ interface NoteListProps {
 }
 
 export default function NoteList({ onSelectNote }: NoteListProps) {
-  const { notes, folders, selectedNoteId, selectNote, togglePin, deleteNote, searchQuery, sortBy, setSortBy, tags, activeFolderId, setActiveFolder, setNoteFolder } = useNoteStore();
+  const { notes, folders, selectedNoteId, selectNote, togglePin, deleteNote, searchQuery, sortBy, setSortBy, activeFolderId, setActiveFolder, setNoteFolder } = useNoteStore();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; noteId: string; view: 'main' | 'move' } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
@@ -44,16 +43,15 @@ export default function NoteList({ onSelectNote }: NoteListProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [contextMenu]);
 
-  const tagMap = new Map(tags.map((t) => [t.id, t]));
   const searchLower = searchQuery.toLowerCase();
   const activeFolder = activeFolderId ? folders.find((f) => f.id === activeFolderId) : undefined;
 
-  // Search is global; otherwise the open folder filters the list
+  const visibleNotes = activeFolderId
+    ? notes.filter((n) => n.folderId === activeFolderId)
+    : notes.filter((n) => !n.folderId);
   const filtered = searchQuery
-    ? notes.filter((n) => n.title.toLowerCase().includes(searchLower) || n.content.toLowerCase().includes(searchLower))
-    : activeFolderId
-      ? notes.filter((n) => n.folderId === activeFolderId)
-      : notes;
+    ? visibleNotes.filter((n) => n.title.toLowerCase().includes(searchLower) || n.content.toLowerCase().includes(searchLower))
+    : visibleNotes;
 
   const sorted = [...filtered].sort((a, b) => {
     const aPinned = a.pinned ? 1 : 0;
@@ -70,7 +68,12 @@ export default function NoteList({ onSelectNote }: NoteListProps) {
 
   const handleContextMenu = (e: React.MouseEvent, noteId: string) => {
     e.preventDefault();
-    setContextMenu({ x: Math.max(8, Math.min(e.clientX, window.innerWidth - 188)), y: Math.max(8, Math.min(e.clientY, window.innerHeight - 220)), noteId, view: 'main' });
+    setContextMenu({
+      x: Math.max(8, Math.min(e.clientX, window.innerWidth - 188)),
+      y: Math.max(8, e.clientY - 160),
+      noteId,
+      view: 'main',
+    });
   };
 
   const closeContextMenu = () => setContextMenu(null);
@@ -92,7 +95,7 @@ export default function NoteList({ onSelectNote }: NoteListProps) {
             <button
               onClick={() => setActiveFolder(null)}
               className="min-w-7 min-h-7 flex items-center justify-center text-accent/70 hover:text-accent"
-              title="Show all notes"
+              title="Show unfiled notes"
             >
               <X size={10} />
             </button>
@@ -114,7 +117,7 @@ export default function NoteList({ onSelectNote }: NoteListProps) {
       <div className="flex-1 overflow-y-auto" onClick={closeContextMenu}>
         {sorted.length === 0 ? (
           <div className="p-4 text-center text-xs text-muted">
-            {searchQuery ? 'No matching notes' : activeFolderId ? 'No notes in this folder' : 'No notes yet'}
+            {searchQuery ? 'No matching notes' : activeFolderId ? 'No notes in this folder' : 'No unfiled notes'}
           </div>
         ) : (
           sorted.map((note) => {
@@ -157,24 +160,6 @@ export default function NoteList({ onSelectNote }: NoteListProps) {
                       <span className="text-[10px] text-muted">&middot;</span>
                       <span className="text-[10px] text-muted">{relativeTime(note.updatedAt)}</span>
                     </div>
-                    {note.tags.length > 0 && (
-                      <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        {note.tags.map((tagId) => {
-                          const tag = tagMap.get(tagId);
-                          if (!tag) return null;
-                          const tagHex = getTagColor(tag.color);
-                          return (
-                            <span
-                              key={tagId}
-                              className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
-                              style={{ backgroundColor: tagHex + '30', color: tagHex }}
-                            >
-                              {tag.name}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
                     <button aria-label={note.pinned ? 'Unpin note' : 'Pin note'} onClick={(e) => { e.stopPropagation(); togglePin(note.id); }} className="min-w-7 min-h-7 flex items-center justify-center rounded hover:bg-surface-tertiary text-muted hover:text-foreground transition-colors">
@@ -182,9 +167,6 @@ export default function NoteList({ onSelectNote }: NoteListProps) {
                     </button>
                     <button aria-label="Delete note" onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} className="min-w-7 min-h-7 flex items-center justify-center rounded hover:bg-surface-tertiary text-muted hover:text-red-400 transition-colors">
                       <Trash2 size={12} />
-                    </button>
-                    <button aria-label="More note actions" onClick={(e) => { e.stopPropagation(); handleContextMenu(e, note.id); }} className="min-w-7 min-h-7 flex items-center justify-center rounded hover:bg-surface-tertiary text-muted hover:text-foreground transition-colors">
-                      <MoreHorizontal size={12} />
                     </button>
                   </div>
                 </div>
@@ -203,7 +185,10 @@ export default function NoteList({ onSelectNote }: NoteListProps) {
             tabIndex={-1}
             aria-label="Note actions"
             className="fixed z-50 bg-surface-tertiary border border-border rounded-md shadow-lg py-1 min-w-[140px]"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
+            style={{
+              left: contextMenu.x,
+              top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - (contextMenu.view === 'move' ? 240 : 160) - 8)),
+            }}
           >
             {contextMenu.view === 'main' ? (
               <>

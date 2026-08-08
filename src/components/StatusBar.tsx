@@ -29,9 +29,6 @@ export default function StatusBar() {
       {versionCount > 1 && (
        <span className="hidden sm:inline text-muted">versions: {versionCount}</span>
       )}
-      {note.tags.length > 0 && (
-         <span className="hidden sm:inline text-muted">tags: {note.tags.length}</span>
-      )}
       {folderName && (
          <span className="hidden sm:inline text-muted truncate max-w-40">{folderName}</span>
       )}

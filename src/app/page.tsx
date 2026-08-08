@@ -68,7 +68,7 @@ export default function Home() {
     };
 
     poll();
-    const interval = setInterval(poll, 1000);
+    const interval = setInterval(poll, 400);
 
     return () => {
       isMounted = false;
