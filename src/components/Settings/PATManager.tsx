@@ -93,7 +93,7 @@ export default function PATManager() {
       <div>
         <h2 className="text-sm font-semibold text-foreground mb-1">Personal Access Tokens</h2>
         <p className="text-xs text-muted">
-          Generate tokens to connect AI tools like Claude to your NoteHub workspace via MCP.
+          Generate tokens to connect AI tools like Claude to your Copybook workspace via MCP.
           Use them in your MCP client config as <code className="px-1 rounded bg-surface-tertiary text-[11px]">NOTEHUB_PAT</code>.
         </p>
       </div>

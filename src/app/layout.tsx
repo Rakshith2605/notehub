@@ -10,7 +10,7 @@ const geistSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Note Hub",
+  title: "Copybook",
   description: "Smart clipboard and note-taking tool for developers",
 };
 

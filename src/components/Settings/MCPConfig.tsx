@@ -36,7 +36,7 @@ export default function MCPConfig() {
 
   const config = JSON.stringify({
     mcpServers: {
-      notehub: {
+      copybook: {
         command: 'npx',
         args: [
           '-y',
@@ -103,7 +103,7 @@ export default function MCPConfig() {
 
       <p className="text-[10px] text-muted leading-relaxed">
         No local files or install steps. <code className="px-1 rounded bg-surface-tertiary text-[11px]">npx mcp-remote</code> bridges
-        stdio to the NoteHub HTTP API. Works with Claude Desktop, OpenCode, and any MCP client.
+         stdio to the Copybook HTTP API. Works with Claude Desktop, OpenCode, and any MCP client.
       </p>
     </div>
   );

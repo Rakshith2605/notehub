@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// NoteHub MCP Server — zero dependencies, single file
+// Copybook MCP Server — zero dependencies, single file
 // Protocol: JSON-RPC 2.0 over stdio (newline-delimited)
 
 import { createHash } from 'node:crypto';
@@ -36,7 +36,7 @@ async function api(path, opts = {}) {
 const TOOLS = [
   {
     name: 'list_notes',
-    description: 'List all notes in your NoteHub workspace. Optionally filter by a search query.',
+    description: 'List all notes in your Copybook workspace. Optionally filter by a search query.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -58,7 +58,7 @@ const TOOLS = [
   },
   {
     name: 'create_note',
-    description: 'Create a new note in your NoteHub workspace.',
+    description: 'Create a new note in your Copybook workspace.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -99,7 +99,7 @@ const TOOLS = [
   },
   {
     name: 'list_note_types',
-    description: 'List all supported note types (programming languages and formats) available in NoteHub.',
+    description: 'List all supported note types (programming languages and formats) available in Copybook.',
     inputSchema: { type: 'object', properties: {} },
   },
 ];
@@ -121,7 +121,7 @@ async function handleRequest(msg) {
         return respond(id, {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'notehub', version: '1.0.0' },
+          serverInfo: { name: 'copybook', version: '1.0.0' },
         });
 
       case 'notifications/initialized':
@@ -197,4 +197,4 @@ rl.on('line', (line) => {
   }
 });
 
-process.stderr.write(`NoteHub MCP server started (API: ${apiUrl})\n`);
+process.stderr.write(`Copybook MCP server started (API: ${apiUrl})\n`);

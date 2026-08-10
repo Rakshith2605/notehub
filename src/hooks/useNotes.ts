@@ -3,6 +3,8 @@ import { nanoid } from 'nanoid';
 import type { Note, Folder, Tag, Version, ClipboardItem } from '@/types';
 import * as db from '@/lib/db';
 
+export type ClipboardSyncState = 'idle' | 'loading' | 'saving' | 'saved' | 'error';
+
 interface NoteStore {
   activeUserId: string | null;
   notes: Note[];
@@ -18,7 +20,12 @@ interface NoteStore {
   theme: 'dark' | 'light';
   clipboardMode: boolean;
   clipboardItems: ClipboardItem[];
+  activeClipboardId: string | null;
   clipboardEditing: boolean;
+  clipboardLoading: boolean;
+  clipboardSyncState: ClipboardSyncState;
+  clipboardError: string | null;
+  clipboardLastSyncedAt: number | null;
 
   loadFromDB: (userId: string) => Promise<void>;
   clearWorkspace: () => void;
@@ -45,7 +52,9 @@ interface NoteStore {
   setClipboardMode: (mode: boolean) => void;
   addClipboardItem: (content: string) => Promise<void>;
   loadClipboardItems: () => Promise<void>;
-  deleteClipboardItem: (id: string) => void;
+  selectClipboardItem: (id: string) => void;
+  deleteClipboardItem: (id: string) => Promise<void>;
+  clearClipboardHistory: () => Promise<void>;
   setClipboardEditing: (editing: boolean) => void;
   updateCurrentClipboard: (content: string) => void;
 }
@@ -75,7 +84,7 @@ let lastPersistedSnapshot = '';
 let clipboardSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingClipboardEdit: { id: string; content: string } | null = null;
 
-function flushPendingClipboardEdit(userId: string) {
+function flushPendingClipboardEdit(userId: string, set: (partial: Partial<NoteStore>) => void) {
   if (clipboardSaveTimer) {
     clearTimeout(clipboardSaveTimer);
     clipboardSaveTimer = null;
@@ -83,7 +92,12 @@ function flushPendingClipboardEdit(userId: string) {
   const pending = pendingClipboardEdit;
   pendingClipboardEdit = null;
   if (pending) {
-    void db.updateClipboardItem(userId, pending.id, pending.content).catch(console.error);
+    void db.updateClipboardItem(userId, pending.id, pending.content)
+      .then(() => set({ clipboardSyncState: 'saved', clipboardLastSyncedAt: Date.now(), clipboardError: null }))
+      .catch((error: unknown) => set({
+        clipboardSyncState: 'error',
+        clipboardError: error instanceof Error ? error.message : 'Unable to save this clip.',
+      }));
   }
 }
 
@@ -102,10 +116,25 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   theme: 'dark',
   clipboardMode: false,
   clipboardItems: [],
+  activeClipboardId: null,
   clipboardEditing: false,
+  clipboardLoading: false,
+  clipboardSyncState: 'idle',
+  clipboardError: null,
+  clipboardLastSyncedAt: null,
 
   loadFromDB: async (userId) => {
-    set({ activeUserId: userId, isLoading: true, syncError: null });
+    set({
+      activeUserId: userId,
+      isLoading: true,
+      syncError: null,
+      clipboardItems: [],
+      activeClipboardId: null,
+      clipboardLoading: false,
+      clipboardSyncState: 'idle',
+      clipboardError: null,
+      clipboardLastSyncedAt: null,
+    });
 
     try {
       const [notes, folders, tags] = await Promise.all([
@@ -130,7 +159,23 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     if (clipboardSaveTimer) clearTimeout(clipboardSaveTimer);
     pendingClipboardEdit = null;
     lastPersistedSnapshot = '';
-    set({ activeUserId: null, notes: [], folders: [], tags: [], selectedNoteId: null, isLoading: false, syncError: null, clipboardItems: [], clipboardEditing: false, activeFolderId: null });
+    set({
+      activeUserId: null,
+      notes: [],
+      folders: [],
+      tags: [],
+      selectedNoteId: null,
+      isLoading: false,
+      syncError: null,
+      clipboardItems: [],
+      activeClipboardId: null,
+      clipboardEditing: false,
+      clipboardLoading: false,
+      clipboardSyncState: 'idle',
+      clipboardError: null,
+      clipboardLastSyncedAt: null,
+      activeFolderId: null,
+    });
   },
 
   createNote: (content?: string) => {
@@ -282,7 +327,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
     const existing = get().clipboardItems;
     // Pasting the same content again changes nothing: it is already the current clipboard.
-    if (existing[0]?.content === content) return;
+    if (existing[0]?.content === content) {
+      set({ activeClipboardId: existing[0].id, clipboardSyncState: 'saved', clipboardError: null });
+      return;
+    }
 
     const item: ClipboardItem = {
       id: nanoid(),
@@ -291,13 +339,22 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     };
 
     const overflow = existing.slice(MAX_CLIPBOARD_ITEMS - 1);
-    set((s) => ({ clipboardItems: [item, ...s.clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS) }));
+    set((s) => ({
+      clipboardItems: [item, ...s.clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS),
+      activeClipboardId: item.id,
+      clipboardSyncState: 'saving',
+      clipboardError: null,
+    }));
 
     try {
       await db.saveClipboardItem(userId, item);
       await Promise.all(overflow.map((old) => db.deleteClipboardItem(userId, old.id)));
+      set({ clipboardSyncState: 'saved', clipboardLastSyncedAt: Date.now(), clipboardError: null });
     } catch (error) {
-      console.error('Failed to sync clipboard item:', error);
+      set({
+        clipboardSyncState: 'error',
+        clipboardError: error instanceof Error ? error.message : 'Unable to save this clip.',
+      });
     }
   },
 
@@ -305,21 +362,81 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     const userId = get().activeUserId;
     if (!userId) return;
 
+    if (get().clipboardLastSyncedAt === null) set({ clipboardLoading: true, clipboardSyncState: 'loading', clipboardError: null });
+
     try {
       const items = await db.getClipboardItems(userId, MAX_CLIPBOARD_ITEMS);
-      set({ clipboardItems: items });
+      const currentActiveId = get().activeClipboardId;
+      const activeClipboardId = items.some((item) => item.id === currentActiveId)
+        ? currentActiveId
+        : items[0]?.id || null;
+      set({
+        clipboardItems: items,
+        activeClipboardId,
+        clipboardLoading: false,
+        clipboardSyncState: 'saved',
+        clipboardError: null,
+        clipboardLastSyncedAt: Date.now(),
+      });
     } catch (error) {
-      console.error('Failed to load clipboard items:', error);
+      set({
+        clipboardLoading: false,
+        clipboardSyncState: 'error',
+        clipboardError: error instanceof Error ? error.message : 'Unable to load clipboard history.',
+      });
     }
   },
 
-  deleteClipboardItem: (id) => {
+  selectClipboardItem: (id) => {
+    set((s) => ({ activeClipboardId: s.clipboardItems.some((item) => item.id === id) ? id : s.activeClipboardId }));
+  },
+
+  deleteClipboardItem: async (id) => {
     const userId = get().activeUserId;
+    const previousItems = get().clipboardItems;
+    const deletedIndex = previousItems.findIndex((item) => item.id === id);
+    if (deletedIndex < 0) return;
+    const nextItems = previousItems.filter((item) => item.id !== id);
+    const wasActive = get().activeClipboardId === id;
     set((s) => ({
-      clipboardItems: s.clipboardItems.filter((i) => i.id !== id),
+      clipboardItems: nextItems,
+      activeClipboardId: wasActive ? nextItems[0]?.id || null : s.activeClipboardId,
+      clipboardSyncState: userId ? 'saving' : s.clipboardSyncState,
+      clipboardError: null,
     }));
     if (userId) {
-      void db.deleteClipboardItem(userId, id).catch(console.error);
+      try {
+        await db.deleteClipboardItem(userId, id);
+        set({ clipboardSyncState: 'saved', clipboardLastSyncedAt: Date.now(), clipboardError: null });
+      } catch (error) {
+        set((s) => ({
+          clipboardItems: [...s.clipboardItems.slice(0, deletedIndex), previousItems[deletedIndex], ...s.clipboardItems.slice(deletedIndex)],
+          activeClipboardId: wasActive ? id : s.activeClipboardId,
+          clipboardSyncState: 'error',
+          clipboardError: error instanceof Error ? error.message : 'Unable to delete this clip.',
+        }));
+      }
+    }
+  },
+
+  clearClipboardHistory: async () => {
+    const userId = get().activeUserId;
+    const previousItems = get().clipboardItems;
+    if (previousItems.length === 0) return;
+
+    set({ clipboardItems: [], activeClipboardId: null, clipboardSyncState: userId ? 'saving' : 'idle', clipboardError: null });
+    if (!userId) return;
+
+    try {
+      await Promise.all(previousItems.map((item) => db.deleteClipboardItem(userId, item.id)));
+      set({ clipboardSyncState: 'saved', clipboardLastSyncedAt: Date.now(), clipboardError: null });
+    } catch (error) {
+      set({
+        clipboardItems: previousItems,
+        activeClipboardId: previousItems[0]?.id || null,
+        clipboardSyncState: 'error',
+        clipboardError: error instanceof Error ? error.message : 'Unable to clear clipboard history.',
+      });
     }
   },
 
@@ -327,7 +444,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     set({ clipboardEditing: editing });
     if (!editing) {
       const userId = get().activeUserId;
-      if (userId) flushPendingClipboardEdit(userId);
+      if (userId) flushPendingClipboardEdit(userId, set);
     }
   },
 
@@ -335,27 +452,55 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     const userId = get().activeUserId;
     if (!userId) return;
 
-    const current = get().clipboardItems[0];
+    const current = get().clipboardItems.find((item) => item.id === get().activeClipboardId) || get().clipboardItems[0];
 
     // No clipboard yet: the first edit becomes the current clipboard.
     if (!current) {
       if (!content) return;
       const item: ClipboardItem = { id: nanoid(), content, createdAt: Date.now() };
-      set((s) => ({ clipboardItems: [item, ...s.clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS) }));
-      void db.saveClipboardItem(userId, item).catch(console.error);
+      set((s) => ({
+        clipboardItems: [item, ...s.clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS),
+        activeClipboardId: item.id,
+        clipboardSyncState: 'saving',
+        clipboardError: null,
+      }));
+      void db.saveClipboardItem(userId, item)
+        .then(() => set({ clipboardSyncState: 'saved', clipboardLastSyncedAt: Date.now(), clipboardError: null }))
+        .catch((error: unknown) => set({
+          clipboardSyncState: 'error',
+          clipboardError: error instanceof Error ? error.message : 'Unable to save this clip.',
+        }));
       return;
     }
 
     if (current.content === content) return;
 
+    if (!content) {
+      set((s) => {
+        const items = s.clipboardItems.filter((item) => item.id !== current.id);
+        return { clipboardItems: items, activeClipboardId: items[0]?.id || null, clipboardSyncState: 'saving', clipboardError: null };
+      });
+      if (clipboardSaveTimer) clearTimeout(clipboardSaveTimer);
+      pendingClipboardEdit = null;
+      void db.deleteClipboardItem(userId, current.id)
+        .then(() => set({ clipboardSyncState: 'saved', clipboardLastSyncedAt: Date.now(), clipboardError: null }))
+        .catch((error: unknown) => set({
+          clipboardSyncState: 'error',
+          clipboardError: error instanceof Error ? error.message : 'Unable to clear this clip.',
+        }));
+      return;
+    }
+
     // Editing updates the current clipboard in place (no new history entries).
     set((s) => ({
       clipboardItems: s.clipboardItems.map((i) => (i.id === current.id ? { ...i, content } : i)),
+      clipboardSyncState: 'saving',
+      clipboardError: null,
     }));
 
     pendingClipboardEdit = { id: current.id, content };
     if (clipboardSaveTimer) clearTimeout(clipboardSaveTimer);
-    clipboardSaveTimer = setTimeout(() => flushPendingClipboardEdit(userId), 600);
+    clipboardSaveTimer = setTimeout(() => flushPendingClipboardEdit(userId, set), 600);
   },
 }));
 

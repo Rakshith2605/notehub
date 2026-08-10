@@ -51,7 +51,7 @@ export default function Home() {
     }
   }, [setTheme]);
 
-  // Clipboard mode: poll for cross-device sync
+  // Refresh occasionally for cross-device changes without interrupting active edits.
   useEffect(() => {
     if (!clipboardMode || !userId) return;
 
@@ -61,14 +61,14 @@ export default function Home() {
     const poll = async () => {
       if (!isMounted || isPolling) return;
       // Don't clobber local edits while the user is typing in the clipboard area
-      if (useNoteStore.getState().clipboardEditing) return;
+      const state = useNoteStore.getState();
+      if (state.clipboardEditing || state.clipboardSyncState === 'saving' || state.clipboardSyncState === 'loading') return;
       isPolling = true;
       await loadClipboardItems();
       isPolling = false;
     };
 
-    poll();
-    const interval = setInterval(poll, 400);
+    const interval = setInterval(poll, 5000);
 
     return () => {
       isMounted = false;
@@ -111,7 +111,7 @@ export default function Home() {
   if (auth.isLoading || (userId && isLoading)) {
     return (
       <div className="h-dvh w-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted text-sm">Loading Note Hub...</div>
+        <div className="animate-pulse text-muted text-sm">Loading Copybook...</div>
       </div>
     );
   }
@@ -141,7 +141,7 @@ export default function Home() {
         >
           {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
         </button>
-        <h1 className="hidden sm:block text-sm font-semibold text-foreground mr-2 whitespace-nowrap">Note Hub</h1>
+        <h1 className="hidden sm:block text-sm font-semibold text-foreground mr-2 whitespace-nowrap">Copybook</h1>
         <div className="flex-1 min-w-0 flex items-center gap-2 max-w-md">
           <Search size={14} className="text-muted shrink-0" />
           <input
@@ -153,7 +153,7 @@ export default function Home() {
             data-search-input
           />
         </div>
-        <div className="flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1">
           <button
             onClick={() => setCommandPaletteOpen(true)}
             className="min-w-8 min-h-8 flex items-center justify-center px-2 rounded text-[10px] text-muted bg-surface-tertiary border border-border hover:text-foreground hover:border-muted transition-colors"
@@ -177,7 +177,8 @@ export default function Home() {
                 ? 'bg-accent/20 text-accent border border-accent/30'
                 : 'text-muted hover:bg-surface-hover hover:text-foreground border border-transparent'
             }`}
-            title="Clipboard mode"
+            title={clipboardMode ? 'Exit clipboard mode' : 'Open clipboard mode'}
+            aria-pressed={clipboardMode}
           >
             <Clipboard size={14} />
             <span className="hidden sm:inline">Clipboard</span>

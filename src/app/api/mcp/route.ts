@@ -53,7 +53,7 @@ async function authenticate(req: NextRequest): Promise<{ userId: string } | Next
 const TOOLS = [
   {
     name: 'list_notes',
-    description: 'List all notes in your NoteHub workspace. Optionally filter by a search query.',
+    description: 'List all notes in your Copybook workspace. Optionally filter by a search query.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -73,7 +73,7 @@ const TOOLS = [
   },
   {
     name: 'create_note',
-    description: 'Create a new note in your NoteHub workspace.',
+    description: 'Create a new note in your Copybook workspace.',
     inputSchema: {
       type: 'object',
       properties: {
